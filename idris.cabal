@@ -461,6 +461,7 @@ Library
                 , IRTS.CodegenC
                 , IRTS.CodegenCommon
                 , IRTS.CodegenJava
+                , IRTS.CodegenObjC
                 , IRTS.CodegenJavaScript
                 , IRTS.Compiler
                 , IRTS.Defunctionalise
