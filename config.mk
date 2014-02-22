@@ -1,7 +1,8 @@
 CC              :=cc
 CABAL           :=cabal
-CFLAGS          :=-O2 -Wall $(CFLAGS)
-#CABALFLAGS	:=
+CFLAGS          :=-O2 -Wall -I/opt/boxen/homebrew/Cellar/llvm/3.3/include -I/opt/boxen/homebrew/Cellar/libffi/3.0.13/lib/libffi-3.0.13/include $(CFLAGS)
+LDFLAGS := -L/opt/boxen/homebrew/Cellar/llvm/3.3/lib -L/opt/boxen/homebrew/Cellar/libffi/3.0.13/lib $(LDFLAGS)
+CABALFLAGS	:= -f FFI -f LLVM
 ## Disable building of Effects
 #CABALFLAGS :=-f NoEffects
 
