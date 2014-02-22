@@ -502,6 +502,7 @@ Library
                 , directory >= 1.2
                 , filepath
                 , haskeline >= 0.7
+                , language-c-inline >= 0.3.0.1
                 , language-java >= 0.2.6
                 , mtl
                 , parsers >= 0.9
