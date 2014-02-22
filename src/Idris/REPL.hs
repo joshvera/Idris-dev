@@ -1005,6 +1005,7 @@ parseCodegen "C" = ViaC
 parseCodegen "Java" = ViaJava
 parseCodegen "bytecode" = Bytecode
 parseCodegen "javascript" = ViaJavaScript
+parseCodegen "objc" = ViaObjectiveC
 parseCodegen "node" = ViaNode
 parseCodegen "llvm" = ViaLLVM
 parseCodegen _ = error "unknown codegen" -- FIXME: partial function

@@ -234,6 +234,7 @@ type Idris = StateT IState (ErrorT Err IO)
 data Codegen = ViaC
              | ViaJava
              | ViaNode
+             | ViaObjectiveC
              | ViaJavaScript
              | ViaLLVM
              | Bytecode

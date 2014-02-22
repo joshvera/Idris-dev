@@ -2089,6 +2089,7 @@ instance Binary Codegen where
                 ViaNode -> putWord8 2
                 ViaJavaScript -> putWord8 3
                 Bytecode -> putWord8 4
+                ViaObjectiveC -> putWord8 5
         get
           = do i <- getWord8
                case i of
@@ -2097,5 +2098,6 @@ instance Binary Codegen where
                   2 -> return ViaNode
                   3 -> return ViaJavaScript
                   4 -> return Bytecode
+                  5 -> return ViaObjectiveC
                   _ -> error  "Corrupted binary data for Codegen"
 

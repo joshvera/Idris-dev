@@ -10,6 +10,7 @@ import IRTS.CodegenC
 import IRTS.CodegenJava
 import IRTS.DumpBC
 import IRTS.CodegenJavaScript
+import IRTS.CodegenObjC
 #ifdef IDRIS_LLVM
 import IRTS.CodegenLLVM
 #else
@@ -83,6 +84,8 @@ compile codegen f tm
                                     (concatMap mkLib libs)
                                     (concatMap mkFlag flags ++
                                      concatMap incdir impdirs) NONE
+                              ViaObjectiveC ->
+                                  codegenObjC [] c f hdrs libs outty
                               ViaJava ->
                                   codegenJava [] c f hdrs libs outty
                               ViaJavaScript ->
