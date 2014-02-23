@@ -7,6 +7,7 @@ import IRTS.CodegenCommon
 import IRTS.Lang
 import IRTS.Simplified
 
+import Data.Loc
 import Language.C.Quote as QC
 
 import System.FilePath
@@ -32,11 +33,40 @@ translateDeclaration :: (Name, SDecl) -> [String]
 translateDeclaration (path, SFun name params stackSize body)
    | (MN _ ap) <- name
    , (SChkCase var cases) <- body
-   , ap == txt "APPLY" = ["Apply"]
+   , ap == txt "APPLY" = 
+      ["APPLY"]
 
    | (MN _ ev) <- name
    , (SChkCase var cases) <- body
-   , ev == txt "EVAL" = ["Eval"]
-   | otherwise = ["Expression"]
+   , ev == txt "EVAL" =
+      ["EVAL"]
 
+   | otherwise =
+      [translateExpression body ++ "\n" ]
 
+translateExpression :: SExp -> String
+translateExpression (SError msg) =
+   "Error:" ++ msg
+
+translateExpression (SConst constant) =
+   translateConstant constant
+
+translateExpression (SApp tc name vars) =
+   show $ objcCall name vars
+
+translateExpression _ = "undefined"
+
+objcCall :: Name -> [LVar] -> QC.Exp
+objcCall name (IRTS.Lang.Loc i : xs) = 
+   FnCall (QC.Var (Id (show name) noLoc) noLoc) [] noLoc
+      where
+         location = (srclocOf $ linePos "" i)
+objc name _ = QC.Var (Id "undefined" noLoc) noLoc
+
+translateConstant :: Idris.Core.TT.Const -> String
+translateConstant (Str s) = s
+translateConstant _ = "undefined"
+
+logDeclarations :: (Name, SDecl) -> [String]
+logDeclarations (path, sdecl) =
+   [show sdecl ++ "\n"]
