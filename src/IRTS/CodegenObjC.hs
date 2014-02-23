@@ -2,13 +2,14 @@
 
 module IRTS.CodegenObjC (codegenObjC) where
 
-import Idris.Core.TT hiding (mkApp)
+import Idris.Core.TT as TT hiding (mkApp)
 import IRTS.CodegenCommon
 import IRTS.Lang
 import IRTS.Simplified
 
 import Data.Loc
 import Language.C.Quote as QC
+import Text.PrettyPrint.Mainland
 
 import System.FilePath
 
@@ -23,49 +24,56 @@ codegenObjC globalInit definitions filename headers libs outputType = generateOb
 
 generateObjCFile :: [(Name, SDecl)] -> FilePath ->  IO ()
 generateObjCFile definitions filename = do
-   writeFile filename $ concat functions
+   writeFile filename $ pretty 80 (ppr functions)
       where
-         functions :: [String]
-         functions = concatMap translateDeclaration definitions
+         functions :: [Definition]
+         functions = map translateDeclaration definitions
 
+translateDeclaration :: (Name, SDecl) -> Definition
+translateDeclaration (name, fun) = FuncDef (objcFun fun) noLoc
 
-translateDeclaration :: (Name, SDecl) -> [String]
-translateDeclaration (path, SFun name params stackSize body)
-   | (MN _ ap) <- name
-   , (SChkCase var cases) <- body
-   , ap == txt "APPLY" = 
-      ["APPLY"]
+objcFun :: SDecl -> Func
+objcFun (SFun name paramNames stackSize body) =
+   Func declSpec identifier decl params blockItems noLoc
+      where
+         declSpec = cdeclSpec [Tstatic noLoc] [] (Tvoid noLoc)
+         identifier = Id (show name) noLoc
+         decl = DeclRoot noLoc
+         -- Fix me: figure out where to find types of params
+         params = Params [] True noLoc
+         blockItems = translateExpression body
 
-   | (MN _ ev) <- name
-   , (SChkCase var cases) <- body
-   , ev == txt "EVAL" =
-      ["EVAL"]
+printError :: String -> Exp
+printError msg =
+   FnCall (QC.Var (Id "NSLog" noLoc) noLoc) [ObjCLitString [QC.StringConst [msg] msg noLoc] noLoc] noLoc
 
-   | otherwise =
-      [translateExpression body ++ "\n" ]
-
-translateExpression :: SExp -> String
+translateExpression :: SExp -> [BlockItem]
 translateExpression (SError msg) =
-   "Error:" ++ msg
+   [BlockStm (ObjCThrow (Just (printError message)) noLoc)]
+   where
+      message = "Error:" ++ msg
 
 translateExpression (SConst constant) =
-   translateConstant constant
+   [BlockStm (Exp (Just (Const (translateConstant constant) noLoc)) noLoc)]
 
 translateExpression (SApp tc name vars) =
-   show $ objcCall name vars
+   [BlockStm (Exp (Just (objcCall name vars)) noLoc)]
 
-translateExpression _ = "undefined"
+translateExpression _ = []
 
 objcCall :: Name -> [LVar] -> QC.Exp
-objcCall name (IRTS.Lang.Loc i : xs) = 
+objcCall name (IRTS.Lang.Loc i : xs) =
    FnCall (QC.Var (Id (show name) noLoc) noLoc) [] noLoc
       where
          location = (srclocOf $ linePos "" i)
 objc name _ = QC.Var (Id "undefined" noLoc) noLoc
 
-translateConstant :: Idris.Core.TT.Const -> String
-translateConstant (Str s) = s
-translateConstant _ = "undefined"
+translateConstant :: TT.Const -> QC.Const
+translateConstant (Str s) = toConst s noLoc
+translateConstant (I i) = toConst i noLoc
+translateConstant (BI i) = toConst i noLoc
+translateConstant (Fl i) = toConst i noLoc
+translateConstant _ = toConst "undefined" noLoc
 
 logDeclarations :: (Name, SDecl) -> [String]
 logDeclarations (path, sdecl) =
