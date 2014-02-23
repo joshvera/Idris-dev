@@ -503,6 +503,8 @@ Library
                 , directory >= 1.2
                 , filepath
                 , haskeline >= 0.7
+                , srcloc >= 0.4.0
+                , mainland-pretty   >= 0.2.5
                 , language-c-quote >= 0.7.6
                 , language-java >= 0.2.6
                 , mtl
