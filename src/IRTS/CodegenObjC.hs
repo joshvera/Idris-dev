@@ -4,7 +4,7 @@ module IRTS.CodegenObjC (codegenObjC) where
 
 import Idris.Core.TT as TT hiding (mkApp)
 import IRTS.CodegenCommon
-import IRTS.Lang
+import IRTS.Lang as TT
 import IRTS.Simplified
 
 import Data.Loc
@@ -41,32 +41,45 @@ objcFun (SFun name paramNames stackSize body) =
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
          params = Params [] True noLoc
-         blockItems = translateExpression body
+         blockItems = [BlockStm (Exp (Just $ translateExpression body) noLoc)]
 
 printError :: String -> Exp
 printError msg =
    FnCall (QC.Var (Id "NSLog" noLoc) noLoc) [ObjCLitString [QC.StringConst [msg] msg noLoc] noLoc] noLoc
 
-translateExpression :: SExp -> [BlockItem]
-translateExpression (SError msg) =
-   [BlockStm (ObjCThrow (Just (printError message)) noLoc)]
-   where
-      message = "Error:" ++ msg
+translateExpression :: SExp -> QC.Exp
 
 translateExpression (SConst constant) =
-   [BlockStm (Exp (Just (Const (translateConstant constant) noLoc)) noLoc)]
+  Const (translateConstant constant) noLoc
 
 translateExpression (SApp tc name vars) =
-   [BlockStm (Exp (Just (objcCall name vars)) noLoc)]
+   objcCall name vars
 
-translateExpression _ = []
+translateExpression (SLet name value body) =
+   objcLet name value body
+
+translateExpression _ = translateVariable (TT.Loc 10)
+
+translateVariable :: LVar -> QC.Exp
+translateVariable (TT.Loc i) = QC.Var (Id identifier noLoc) noLoc
+   where
+      identifier = ("__var_" ++) $ show i
 
 objcCall :: Name -> [LVar] -> QC.Exp
-objcCall name (IRTS.Lang.Loc i : xs) =
+objcCall name (TT.Loc i : xs) =
    FnCall (QC.Var (Id (show name) noLoc) noLoc) [] noLoc
       where
          location = (srclocOf $ linePos "" i)
-objc name _ = QC.Var (Id "undefined" noLoc) noLoc
+objcCall name _ = QC.Var (Id "undefined" noLoc) noLoc
+
+objcLet :: LVar -> SExp -> SExp -> QC.Exp
+objcLet name sValue body =
+   Seq assignment exprBody noLoc
+   where
+      exprBody = (translateExpression body)
+      assignment = Assign identifier JustAssign value noLoc
+      identifier = translateVariable name
+      value = translateExpression sValue
 
 translateConstant :: TT.Const -> QC.Const
 translateConstant (Str s) = toConst s noLoc
