@@ -27,10 +27,15 @@ generateObjCFile definitions filename = do
    writeFile filename $ pretty 80 (ppr functions)
       where
          functions :: [Definition]
-         functions = map translateDeclaration definitions
+         functions = concatMap translateDeclaration definitions
 
-translateDeclaration :: (Name, SDecl) -> Definition
-translateDeclaration (name, fun) = FuncDef (objcFun fun) noLoc
+translateDeclaration :: (Name, SDecl) -> [Definition]
+translateDeclaration (path, fun@(SFun name params stackSize body))
+  | (SCon i name vars) <- body
+    = translateConstructor i name vars
+
+  | otherwise =
+    [FuncDef (objcFun fun) noLoc]
 
 objcFun :: SDecl -> Func
 objcFun (SFun name paramNames stackSize body) =
@@ -45,12 +50,28 @@ objcFun (SFun name paramNames stackSize body) =
 
 printError :: String -> Exp
 printError msg =
-   FnCall (QC.Var (mkId "NSLog") noLoc) [litString] noLoc 
+   FnCall (QC.Var (mkId "NSLog") noLoc) [litString] noLoc
       where
-         litString = 
+         litString =
             ObjCLitString [StringConst [string] "" noLoc] noLoc
          string = ((pretty 80) . dquotes . text) msg
 
+translateConstructor :: Int -> Name -> [LVar] -> [QC.Definition]
+translateConstructor i name args =
+   [interface, implementation]
+      where
+         interface = ObjCClassIface className Nothing [] [] properties [] noLoc
+         implementation = ObjCClassImpl className Nothing [] [] noLoc
+         className = mkId (show name)
+         properties = map toObjCProperty args
+
+toObjCProperty :: LVar -> ObjCIfaceDecl
+toObjCProperty var = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
+   where
+      fieldGroup = FieldGroup (cdeclSpec [] [] (Tnamed (mkVarId var) [] noLoc)) [] noLoc
+
+mkVarId :: LVar -> Id
+mkVarId (TT.Loc i) = mkId $ ("__var_" ++) $ show i
 
 translateExpression :: SExp -> QC.Exp
 
@@ -72,16 +93,13 @@ mkId :: String -> Id
 mkId ident = Id ident noLoc
 
 translateVariable :: LVar -> QC.Exp
-translateVariable (TT.Loc i) = QC.Var (Id identifier noLoc) noLoc
+translateVariable (TT.Loc i) = mkVar identifier
    where
       identifier = ("__var_" ++) $ show i
 
 objcCall :: Name -> [LVar] -> QC.Exp
-objcCall name (TT.Loc i : xs) =
-   FnCall (mkVar (show name)) [] noLoc
-      where
-         location = (srclocOf $ linePos "" i)
-objcCall name _ = mkVar "undfined"
+objcCall name xs =
+   FnCall ((mkVar . show) name) (map translateVariable xs) noLoc
 
 mkVar :: String -> QC.Exp
 mkVar s = QC.Var (mkId s) noLoc
