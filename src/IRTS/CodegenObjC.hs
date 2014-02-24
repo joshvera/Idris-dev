@@ -78,10 +78,13 @@ translateVariable (TT.Loc i) = QC.Var (Id identifier noLoc) noLoc
 
 objcCall :: Name -> [LVar] -> QC.Exp
 objcCall name (TT.Loc i : xs) =
-   FnCall (QC.Var (Id (show name) noLoc) noLoc) [] noLoc
+   FnCall (mkVar (show name)) [] noLoc
       where
          location = (srclocOf $ linePos "" i)
-objcCall name _ = QC.Var (Id "undefined" noLoc) noLoc
+objcCall name _ = mkVar "undfined"
+
+mkVar :: String -> QC.Exp
+mkVar s = QC.Var (mkId s) noLoc
 
 objcLet :: LVar -> SExp -> SExp -> QC.Exp
 objcLet name sValue body =
