@@ -1,6 +1,6 @@
 {-# LANGUAGE PatternGuards #-}
 
-module IRTS.CodegenObjC (codegenObjC) where
+module IRTS.CodegenObjC (codegenObjC, printError) where
 
 import Idris.Core.TT as TT hiding (mkApp)
 import IRTS.CodegenCommon
@@ -45,7 +45,12 @@ objcFun (SFun name paramNames stackSize body) =
 
 printError :: String -> Exp
 printError msg =
-   FnCall (QC.Var (Id "NSLog" noLoc) noLoc) [ObjCLitString [QC.StringConst [msg] msg noLoc] noLoc] noLoc
+   FnCall (QC.Var (mkId "NSLog") noLoc) [litString] noLoc 
+      where
+         litString = 
+            ObjCLitString [StringConst [string] "" noLoc] noLoc
+         string = ((pretty 80) . dquotes . text) msg
+
 
 translateExpression :: SExp -> QC.Exp
 
@@ -58,7 +63,13 @@ translateExpression (SApp tc name vars) =
 translateExpression (SLet name value body) =
    objcLet name value body
 
+translateExpression (SError error) =
+   printError error
+
 translateExpression _ = translateVariable (TT.Loc 10)
+
+mkId :: String -> Id
+mkId ident = Id ident noLoc
 
 translateVariable :: LVar -> QC.Exp
 translateVariable (TT.Loc i) = QC.Var (Id identifier noLoc) noLoc
