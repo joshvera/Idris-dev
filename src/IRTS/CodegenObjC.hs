@@ -87,7 +87,11 @@ translateExpression (SLet name value body) =
 translateExpression (SError error) =
    printError error
 
-translateExpression _ = translateVariable (TT.Loc 10)
+translateExpression (SUpdate var e) =
+  objcAssign var e
+
+translateExpression e =
+  printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
 mkId :: String -> Id
 mkId ident = Id ident noLoc
@@ -96,6 +100,13 @@ translateVariable :: LVar -> QC.Exp
 translateVariable (TT.Loc i) = mkVar identifier
    where
       identifier = ("__var_" ++) $ show i
+
+objcAssign :: LVar -> SExp -> QC.Exp
+objcAssign name e = Assign identifier JustAssign value noLoc
+  where
+    identifier = translateVariable name
+    value = translateExpression e
+
 
 objcCall :: Name -> [LVar] -> QC.Exp
 objcCall name xs =
@@ -106,12 +117,9 @@ mkVar s = QC.Var (mkId s) noLoc
 
 objcLet :: LVar -> SExp -> SExp -> QC.Exp
 objcLet name sValue body =
-   Seq assignment exprBody noLoc
+   Seq (objcAssign name sValue) exprBody noLoc
    where
-      exprBody = (translateExpression body)
-      assignment = Assign identifier JustAssign value noLoc
-      identifier = translateVariable name
-      value = translateExpression sValue
+     exprBody = (translateExpression body)
 
 translateConstant :: TT.Const -> QC.Const
 translateConstant (Str s) = toConst s noLoc
