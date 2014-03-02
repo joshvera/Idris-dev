@@ -116,6 +116,8 @@ translateExpression (SError error) =
 translateExpression (SUpdate var e) =
   objcAssign var e
 
+translateExpression SNothing = mkVar $ mkId "nil"
+
 translateExpression e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
