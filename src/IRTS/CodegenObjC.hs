@@ -52,13 +52,13 @@ nameToParam :: Name -> Param
 nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
 
 nameToId :: Name -> Id
-nameToId name = mkId ("IDR" ++ "UN" ++ translateName name)
+nameToId name = mkId ("IDR" ++ translateName name)
 
 translateName :: Name -> String
-translateName (UN name) = "UN" ++ (str name)
-translateName (NS name _) = "NS" ++ translateName name
-translateName (MN i name) = "MS" ++ (str name) ++ show i
-translateName (SN name) = "SN" ++ translateSpecialName name
+translateName (UN name) = "UN_" ++ (str name)
+translateName (NS name _) = "NS_" ++ translateName name
+translateName (MN i name) = "MN_" ++ (str name) ++ show i
+translateName (SN name) = "SN_" ++ translateSpecialName name
 translateName NErased = "NErased"
 
 translateSpecialName :: SpecialName -> String
@@ -123,7 +123,7 @@ mkId :: String -> Id
 mkId ident = Id ident noLoc
 
 translateVariable :: LVar -> QC.Exp
-translateVariable (TT.Loc i) = mkVar identifier
+translateVariable (TT.Loc i) = mkVar (mkId identifier)
    where
       identifier = ("__var_" ++) $ show i
 
@@ -135,10 +135,10 @@ objcAssign name e = Assign identifier JustAssign value noLoc
 
 objcCall :: Name -> [LVar] -> QC.Exp
 objcCall name xs =
-   FnCall (nameToId name) (map translateVariable xs) noLoc
+   FnCall ((mkVar . nameToId) name) (map translateVariable xs) noLoc
 
-mkVar :: String -> QC.Exp
-mkVar s = QC.Var (mkId s) noLoc
+mkVar :: Id -> QC.Exp
+mkVar ident = QC.Var ident noLoc
 
 objcLet :: LVar -> SExp -> SExp -> QC.Exp
 objcLet name sValue body =
