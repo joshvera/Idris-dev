@@ -45,8 +45,11 @@ objcFun (SFun name paramNames stackSize body) =
          identifier = Id (show name) noLoc
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
-         params = Params [] True noLoc
+         params = Params (map nameToParam paramNames) True noLoc
          blockItems = [BlockStm (Exp (Just $ translateExpression body) noLoc)]
+
+nameToParam :: Name -> Param
+nameToParam name = Param (Just (mkId (show name))) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
 
 printError :: String -> Exp
 printError msg =
@@ -106,7 +109,6 @@ objcAssign name e = Assign identifier JustAssign value noLoc
   where
     identifier = translateVariable name
     value = translateExpression e
-
 
 objcCall :: Name -> [LVar] -> QC.Exp
 objcCall name xs =
