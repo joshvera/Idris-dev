@@ -51,6 +51,29 @@ objcFun (SFun name paramNames stackSize body) =
 nameToParam :: Name -> Param
 nameToParam name = Param (Just (mkId (show name))) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
 
+nameToId :: Name -> Id
+nameToId name = mkId ("IDR" ++ "UN" ++ translateName name)
+
+translateName :: Name -> String
+translateName (UN name) = "UN" ++ (str name)
+translateName (NS name _) = "NS" ++ translateName name
+translateName (MN i name) = "MS" ++ (str name) ++ show i
+translateName (SN name) = "SN" ++ translateSpecialName name
+translateName NErased = "NErased"
+
+translateSpecialName :: SpecialName -> String
+translateSpecialName name
+  | WhereN i m n <- name =
+    'W' : translateName m ++ translateName n ++ show i
+  | InstanceN n s <- name =
+    'I' : translateName n ++ concatMap str s
+  | ParentN n s <- name =
+    'P' : translateName n ++ str s
+  | MethodN n <- name =
+    'M' : translateName n
+  | CaseN n <- name =
+    'C' : translateName n
+
 printError :: String -> Exp
 printError msg =
    FnCall (QC.Var (mkId "NSLog") noLoc) [litString] noLoc
