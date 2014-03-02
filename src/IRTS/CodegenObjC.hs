@@ -105,13 +105,16 @@ idrisObjectClassDefs =
 
 initMethodImp :: [QC.BlockItem]
 initMethodImp =
-  map (BlockStm . mkExprStm) exprs
+  exprs
     where
-      initAssignment = objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
-      earlyNilReturn = mkReturnExpr (translateVariable $ sUN "nil")
-      assignIdentifier = objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
-      assignArray = objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
-      returnSelf = mkReturnExpr (translateVariable $ sUN "self")
+      initAssignment = (BlockStm . mkExprStm) $ objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
+      self = (translateVariable $ sUN "self")
+      nil = (translateVariable $ sUN "nil")
+      ifSelfEqualsNil = BinOp Eq self nil noLoc
+      earlyNilReturn = BlockStm $ If ifSelfEqualsNil (mkReturnStm nil) Nothing noLoc
+      assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
+      assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
+      returnSelf = (BlockStm . mkReturnStm) self
       exprs = [ initAssignment
               , earlyNilReturn
               , assignIdentifier
