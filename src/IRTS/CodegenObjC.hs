@@ -118,16 +118,24 @@ translateExpression (SUpdate var e) =
 
 translateExpression SNothing = mkVar $ mkId "nil"
 
+translateExpression (SV var) = translateVariable var
+
+translateExpression (SChkCase var cases) = translateCase var cases
+
 translateExpression e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
-mkId :: String -> Id
+translateCase :: LVar -> [SAlt] -> QC.Exp
+translateCase = undefined
+
+
+mkId :: String -> QC.Id
 mkId ident = Id ident noLoc
 
 translateVariable :: LVar -> QC.Exp
 translateVariable (TT.Loc i) = mkVar (mkId identifier)
    where
-      identifier = ("__var_" ++) $ show i
+      identifier = ("var_" ++) $ show i
 
 objcAssign :: LVar -> SExp -> QC.Exp
 objcAssign name e = Assign identifier JustAssign value noLoc
