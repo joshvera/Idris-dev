@@ -126,7 +126,22 @@ translateExpression e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
 translateCase :: LVar -> [SAlt] -> QC.Exp
-translateCase = undefined
+translateCase var [] = makeReturnExpr (translateVariable var)
+translateCase var [SDefaultCase e] = makeReturnExpr (translateExpression e)
+translateCase var [SConstCase _ e] = makeReturnExpr (translateExpression e)
+translateCase var _ = makeReturnExpr (translateVariable var)
+
+makeReturnExpr :: QC.Exp -> QC.Exp
+makeReturnExpr = mkStmExpr. (:[]) . mkBlockStm . mkReturnStm
+
+mkReturnStm :: QC.Exp -> QC.Stm
+mkReturnStm exp = Return (Just exp) noLoc
+
+mkBlockStm :: QC.Stm -> QC.BlockItem
+mkBlockStm stm = BlockStm stm
+
+mkStmExpr :: [QC.BlockItem] -> QC.Exp
+mkStmExpr items = StmExpr items noLoc
 
 
 mkId :: String -> QC.Id
