@@ -93,12 +93,34 @@ idrisObjectClassDefs =
    [interface, implementation]
       where
          interface = ObjCClassIface className Nothing [] [] properties [] noLoc
-         implementation = ObjCClassImpl className Nothing [] [] noLoc
+         implementation = ObjCClassImpl className Nothing [] methods noLoc
          className = nameToId $ sUN "IdrisObject"
 
          methodType = Type (cdeclSpec [] [] (Tnamed (mkId "instancetype") [] noLoc)) (DeclRoot noLoc) noLoc
-         method = ObjCIfaceMeth (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just $ mkObjectType "NSNumber") [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc) noLoc
-         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments", method]
+         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just $ mkObjectType "NSNumber") [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc)
+         methodImplementation = initMethodImp
+         methodInterface = ObjCIfaceMeth methodPrototype noLoc
+         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments", methodInterface]
+         methods = [ObjCMethDef methodPrototype initMethodImp noLoc]
+
+initMethodImp :: [QC.BlockItem]
+initMethodImp =
+  map (BlockStm . mkExprStm) exprs
+    where
+      initAssignment = objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
+      earlyNilReturn = If mkReturnExpr (QC.Var (mkId "nil") noLoc)
+      assignIdentifier = objcAssignExp (sUN "_identifier") (QC.Var (mkId "identifier") noLoc)
+      assignArray = objcAssignExp (sUN "_array") (QC.Var (mkId "array") noLoc)
+      returnSelf = mkReturnExpr (QC.Var (mkId "self") noLoc)
+      exprs = [ initAssignment
+              , earlyNilReturn
+              , assignIdentifier
+              , assignArray
+              , returnSelf
+              ]
+
+mkExprStm :: QC.Exp -> QC.Stm
+mkExprStm exp = Exp (Just exp) noLoc
 
 mkObjectType :: String -> QC.Type
 mkObjectType s = QC.Type (cdeclSpec [] [] (Tnamed (mkId s) [] noLoc)) cPtrDecl noLoc
@@ -172,7 +194,7 @@ mkId :: String -> QC.Id
 mkId ident = Id ident noLoc
 
 translateVariable :: Name -> QC.Exp
-translateVariable name = mkVar $ nameToId name 
+translateVariable name = mkVar $ nameToId name
 
 objcAssign :: Name -> SExp -> QC.Exp
 objcAssign name e = objcAssignExp name value
