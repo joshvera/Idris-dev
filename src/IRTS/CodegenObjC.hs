@@ -175,10 +175,14 @@ translateVariable :: Name -> QC.Exp
 translateVariable name = mkVar $ nameToId name 
 
 objcAssign :: Name -> SExp -> QC.Exp
-objcAssign name e = Assign identifier JustAssign value noLoc
+objcAssign name e = objcAssignExp name value
+  where
+    value = translateExpression [] e
+
+objcAssignExp :: Name -> QC.Exp -> QC.Exp
+objcAssignExp name e = Assign identifier JustAssign e noLoc
   where
     identifier = translateVariable name
-    value = translateExpression [] e
 
 objcCall :: Name -> [Name] -> QC.Exp
 objcCall name xs =
