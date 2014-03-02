@@ -45,7 +45,7 @@ objcFun (SFun name paramNames stackSize body) =
          identifier = Id (show name) noLoc
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
-         params = Params (map nameToParam paramNames) True noLoc
+         params = Params (map nameToParam paramNames) False noLoc
          blockItems = [BlockStm (Exp (Just $ translateExpression body) noLoc)]
 
 nameToParam :: Name -> Param
