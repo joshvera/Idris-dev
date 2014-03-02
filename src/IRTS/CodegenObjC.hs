@@ -80,12 +80,14 @@ translateSpecialName name
     'C' : translateName n
 
 printError :: String -> Exp
-printError msg =
-   FnCall (QC.Var (mkId "NSLog") noLoc) [litString] noLoc
-      where
-         litString =
-            ObjCLitString [StringConst [string] "" noLoc] noLoc
-         string = ((pretty 80) . dquotes . text) msg
+printError msg = objcLog msg []
+
+objcLog :: String -> [Name] -> QC.Exp
+objcLog msg names = FnCall (QC.Var (mkId "NSLog") noLoc) (litString : args) noLoc
+  where
+    litString = ObjCLitString [StringConst [string] "" noLoc] noLoc
+    string = ((pretty 80) . dquotes . text) msg
+    args = map translateVariable names
 
 translateConstructor :: Int -> Name -> [LVar] -> [QC.Definition]
 translateConstructor i name args =
@@ -126,6 +128,9 @@ translateExpression _ SNothing = mkVar $ mkId "nil"
 translateExpression names (SV var) = (translateVariable . (varToName names)) var
 
 translateExpression names (SChkCase var cases) = translateCase (varToName names var) cases
+
+translateExpression names (SForeign _ _ "putStr" [(_, var)]) =
+  objcLog "%@" [(varToName names var)]
 
 translateExpression _ e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
