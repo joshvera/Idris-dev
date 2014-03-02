@@ -56,10 +56,10 @@ cPtrDecl :: Decl
 cPtrDecl = Ptr [] (DeclRoot noLoc) noLoc
 
 nameToId :: Name -> Id
-nameToId name = mkId ("IDR" ++ translateName name)
+nameToId name = mkId (translateName name)
 
 translateName :: Name -> String
-translateName (UN name) = "UN_" ++ (str name)
+translateName (UN name) = (str name)
 translateName (NS name _) = "NS_" ++ translateName name
 translateName (MN i name) = "MN_" ++ (str name) ++ show i
 translateName (SN name) = "SN_" ++ translateSpecialName name
