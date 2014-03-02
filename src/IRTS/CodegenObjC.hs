@@ -29,18 +29,14 @@ codegenObjC globalInit definitions filename headers libs outputType = generateOb
 generateObjCFile :: [(Name, SDecl)] -> FilePath ->  IO ()
 generateObjCFile definitions filename = do
   putStrLn (show definitions)
-  writeFile filename $ pretty 80 (ppr functions)
+  writeFile filename $ pretty 80 (ppr $ classes ++ functions)
     where
+      classes = idrisObjectClassDefs
       functions :: [Definition]
       functions = concatMap translateDeclaration definitions
 
 translateDeclaration :: (Name, SDecl) -> [Definition]
-translateDeclaration (path, fun@(SFun name params stackSize body))
-  | (SCon i name vars) <- body
-    = translateConstructor i name vars
-
-  | otherwise =
-    [FuncDef (objcFun fun) noLoc]
+translateDeclaration (path, fun) = [FuncDef (objcFun fun) noLoc]
 
 objcFun :: SDecl -> Func
 objcFun (SFun name paramNames stackSize body) =
@@ -54,7 +50,10 @@ objcFun (SFun name paramNames stackSize body) =
          blockItems = [BlockStm (Exp (Just $ translateExpression paramNames body) noLoc)]
 
 nameToParam :: Name -> Param
-nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
+nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) cPtrDecl noLoc
+
+cPtrDecl :: Decl
+cPtrDecl = Ptr [] (DeclRoot noLoc) noLoc
 
 nameToId :: Name -> Id
 nameToId name = mkId ("IDR" ++ translateName name)
@@ -89,19 +88,19 @@ objcLog msg names = FnCall (QC.Var (mkId "NSLog") noLoc) (litString : args) noLo
     string = ((pretty 80) . dquotes . text) msg
     args = map translateVariable names
 
-translateConstructor :: Int -> Name -> [LVar] -> [QC.Definition]
-translateConstructor i name args =
+idrisObjectClassDefs :: [QC.Definition]
+idrisObjectClassDefs =
    [interface, implementation]
       where
          interface = ObjCClassIface className Nothing [] [] properties [] noLoc
          implementation = ObjCClassImpl className Nothing [] [] noLoc
-         className = nameToId name
-         properties = map toObjCProperty args
+         className = nameToId $ sUN "IdrisObject"
+         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments"]
 
-toObjCProperty :: LVar -> ObjCIfaceDecl
-toObjCProperty var = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
+toObjCProperty :: String -> String -> ObjCIfaceDecl
+toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
    where
-      fieldGroup = FieldGroup (cdeclSpec [] [] (Tnamed (mkVarId var) [] noLoc)) [] noLoc
+      fieldGroup = FieldGroup (cdeclSpec [] [] (Tnamed (mkId cls) [] noLoc)) [Field (Just $ mkId name) (Just cPtrDecl) Nothing noLoc] noLoc
 
 mkVarId :: LVar -> Id
 mkVarId (TT.Loc i) = mkId $ ("var_" ++) $ show i
@@ -132,8 +131,14 @@ translateExpression names (SChkCase var cases) = translateCase (varToName names 
 translateExpression names (SForeign _ _ "putStr" [(_, var)]) =
   objcLog "%@" [(varToName names var)]
 
+translateExpression names (SCon i name vars) =
+  objcCon i (map (varToName names) vars)
+
 translateExpression _ e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
+
+objcCon :: Int -> [Name] -> QC.Exp
+objcCon i names = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "new") Nothing noLoc] [] noLoc
 
 varToName :: [Name] -> LVar -> Name
 varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
