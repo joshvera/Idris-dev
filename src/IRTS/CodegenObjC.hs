@@ -95,7 +95,13 @@ idrisObjectClassDefs =
          interface = ObjCClassIface className Nothing [] [] properties [] noLoc
          implementation = ObjCClassImpl className Nothing [] [] noLoc
          className = nameToId $ sUN "IdrisObject"
-         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments"]
+
+         methodType = Type (cdeclSpec [] [] (Tnamed (mkId "instancetype") [] noLoc)) (DeclRoot noLoc) noLoc
+         method = ObjCIfaceMeth (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just $ mkObjectType "NSNumber") [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc) noLoc
+         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments", method]
+
+mkObjectType :: String -> QC.Type
+mkObjectType s = QC.Type (cdeclSpec [] [] (Tnamed (mkId s) [] noLoc)) cPtrDecl noLoc
 
 toObjCProperty :: String -> String -> ObjCIfaceDecl
 toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
