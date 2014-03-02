@@ -82,7 +82,7 @@ printError :: String -> Exp
 printError msg = objcLog msg []
 
 objcLog :: String -> [Name] -> QC.Exp
-objcLog msg names = FnCall (QC.Var (mkId "NSLog") noLoc) (litString : args) noLoc
+objcLog msg names = FnCall (translateVariable $ sUN "NSLog") (litString : args) noLoc
   where
     litString = ObjCLitString [StringConst [string] "" noLoc] noLoc
     string = ((pretty 80) . dquotes . text) msg
@@ -108,10 +108,10 @@ initMethodImp =
   map (BlockStm . mkExprStm) exprs
     where
       initAssignment = objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
-      earlyNilReturn = If mkReturnExpr (QC.Var (mkId "nil") noLoc)
-      assignIdentifier = objcAssignExp (sUN "_identifier") (QC.Var (mkId "identifier") noLoc)
-      assignArray = objcAssignExp (sUN "_array") (QC.Var (mkId "array") noLoc)
-      returnSelf = mkReturnExpr (QC.Var (mkId "self") noLoc)
+      earlyNilReturn = mkReturnExpr (translateVariable $ sUN "nil")
+      assignIdentifier = objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
+      assignArray = objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
+      returnSelf = mkReturnExpr (translateVariable $ sUN "self")
       exprs = [ initAssignment
               , earlyNilReturn
               , assignIdentifier
