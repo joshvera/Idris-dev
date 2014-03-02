@@ -123,6 +123,38 @@ objcLet name sValue body =
    where
      exprBody = (translateExpression body)
 
+arithTyToObjCType :: ArithTy -> TypeSpec
+arithTyToObjCType (ATInt iTy) = intTyToObjCType iTy
+arityTyToObjCType (ATFloat) = doubleType
+
+doubleType :: TypeSpec
+doubleType = Tdouble noLoc
+
+integerType :: TypeSpec
+integerType = Tint Nothing noLoc
+
+charType :: TypeSpec
+charType = Tchar Nothing noLoc
+
+shortType :: TypeSpec
+shortType = Tshort Nothing noLoc
+
+numberType :: TypeSpec
+numberType = undefined
+
+nativeTyToObjCType :: NativeTy -> TypeSpec
+nativeTyToObjCType IT8 = charType
+nativeTyToObjCType IT16 = shortType
+nativeTyToObjCType IT32 = integerType
+nativeTyToObjCType IT64 = doubleType
+
+intTyToObjCType :: IntTy -> TypeSpec
+intTyToObjCType (ITFixed nativeTy) = nativeTyToObjCType nativeTy
+intTyToObjCType (ITNative) = integerType
+intTyToObjCType (ITBig) = numberType
+intTyToObjCType (ITChar) = charType
+intTyToObjCType (ITVec nativeTy _) = charType
+
 translateConstant :: TT.Const -> QC.Const
 translateConstant (Str s) = toConst s noLoc
 translateConstant (I i) = toConst i noLoc
