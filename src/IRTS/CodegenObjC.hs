@@ -42,14 +42,14 @@ objcFun (SFun name paramNames stackSize body) =
    Func declSpec identifier decl params blockItems noLoc
       where
          declSpec = cdeclSpec [Tstatic noLoc] [] (Tvoid noLoc)
-         identifier = Id (show name) noLoc
+         identifier = nameToId name
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
          params = Params (map nameToParam paramNames) False noLoc
          blockItems = [BlockStm (Exp (Just $ translateExpression body) noLoc)]
 
 nameToParam :: Name -> Param
-nameToParam name = Param (Just (mkId (show name))) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
+nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
 
 nameToId :: Name -> Id
 nameToId name = mkId ("IDR" ++ "UN" ++ translateName name)
@@ -88,7 +88,7 @@ translateConstructor i name args =
       where
          interface = ObjCClassIface className Nothing [] [] properties [] noLoc
          implementation = ObjCClassImpl className Nothing [] [] noLoc
-         className = mkId (show name)
+         className = nameToId name
          properties = map toObjCProperty args
 
 toObjCProperty :: LVar -> ObjCIfaceDecl
@@ -135,7 +135,7 @@ objcAssign name e = Assign identifier JustAssign value noLoc
 
 objcCall :: Name -> [LVar] -> QC.Exp
 objcCall name xs =
-   FnCall ((mkVar . show) name) (map translateVariable xs) noLoc
+   FnCall (nameToId name) (map translateVariable xs) noLoc
 
 mkVar :: String -> QC.Exp
 mkVar s = QC.Var (mkId s) noLoc
