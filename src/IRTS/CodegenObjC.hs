@@ -12,6 +12,10 @@ import Language.C.Quote as QC
 import Text.PrettyPrint.Mainland
 
 import System.FilePath
+import System.IO.Unsafe (unsafePerformIO)
+
+debugLog :: Show a => String -> a -> a
+debugLog msg x = x `seq` unsafePerformIO (putStr msg >> print x >> return x)
 
 codegenObjC :: [(Name, SExp)] -> -- initialization of globals
                [(Name, SDecl)] -> -- decls
@@ -24,10 +28,11 @@ codegenObjC globalInit definitions filename headers libs outputType = generateOb
 
 generateObjCFile :: [(Name, SDecl)] -> FilePath ->  IO ()
 generateObjCFile definitions filename = do
-   writeFile filename $ pretty 80 (ppr functions)
-      where
-         functions :: [Definition]
-         functions = concatMap translateDeclaration definitions
+  putStrLn (show definitions)
+  writeFile filename $ pretty 80 (ppr functions)
+    where
+      functions :: [Definition]
+      functions = concatMap translateDeclaration definitions
 
 translateDeclaration :: (Name, SDecl) -> [Definition]
 translateDeclaration (path, fun@(SFun name params stackSize body))
@@ -42,11 +47,11 @@ objcFun (SFun name paramNames stackSize body) =
    Func declSpec identifier decl params blockItems noLoc
       where
          declSpec = cdeclSpec [Tstatic noLoc] [] (Tvoid noLoc)
-         identifier = nameToId name
+         identifier = nameToId (debugLog "Translating fun:" name)
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
          params = Params (map nameToParam paramNames) False noLoc
-         blockItems = [BlockStm (Exp (Just $ translateExpression body) noLoc)]
+         blockItems = [BlockStm (Exp (Just $ translateExpression paramNames body) noLoc)]
 
 nameToParam :: Name -> Param
 nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) (Ptr [] (DeclRoot noLoc) noLoc) noLoc
@@ -97,38 +102,41 @@ toObjCProperty var = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCR
       fieldGroup = FieldGroup (cdeclSpec [] [] (Tnamed (mkVarId var) [] noLoc)) [] noLoc
 
 mkVarId :: LVar -> Id
-mkVarId (TT.Loc i) = mkId $ ("__var_" ++) $ show i
+mkVarId (TT.Loc i) = mkId $ ("var_" ++) $ show i
 
-translateExpression :: SExp -> QC.Exp
+translateExpression :: [Name] -> SExp -> QC.Exp
 
-translateExpression (SConst constant) =
+translateExpression _ (SConst constant) =
   Const (translateConstant constant) noLoc
 
-translateExpression (SApp tc name vars) =
-   objcCall name vars
+translateExpression names (SApp tc name vars) =
+   objcCall name (map (varToName names) vars)
 
-translateExpression (SLet name value body) =
-   objcLet name value body
+translateExpression names (SLet var value body) =
+   objcLet names var value body
 
-translateExpression (SError error) =
+translateExpression _ (SError error) =
    printError error
 
-translateExpression (SUpdate var e) =
-  objcAssign var e
+translateExpression names (SUpdate var e) =
+  objcAssign (varToName names var) e
 
-translateExpression SNothing = mkVar $ mkId "nil"
+translateExpression _ SNothing = mkVar $ mkId "nil"
 
-translateExpression (SV var) = translateVariable var
+translateExpression names (SV var) = (translateVariable . (varToName names)) var
 
-translateExpression (SChkCase var cases) = translateCase var cases
+translateExpression names (SChkCase var cases) = translateCase (varToName names var) cases
 
-translateExpression e =
+translateExpression _ e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
-translateCase :: LVar -> [SAlt] -> QC.Exp
+varToName :: [Name] -> LVar -> Name
+varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
+
+translateCase :: Name -> [SAlt] -> QC.Exp
 translateCase var [] = makeReturnExpr (translateVariable var)
-translateCase var [SDefaultCase e] = makeReturnExpr (translateExpression e)
-translateCase var [SConstCase _ e] = makeReturnExpr (translateExpression e)
+translateCase var [SDefaultCase e] = makeReturnExpr (translateExpression [var] e)
+translateCase var [SConstCase _ e] = makeReturnExpr (translateExpression [var] e)
 translateCase var _ = makeReturnExpr (translateVariable var)
 
 makeReturnExpr :: QC.Exp -> QC.Exp
@@ -147,29 +155,34 @@ mkStmExpr items = StmExpr items noLoc
 mkId :: String -> QC.Id
 mkId ident = Id ident noLoc
 
-translateVariable :: LVar -> QC.Exp
-translateVariable (TT.Loc i) = mkVar (mkId identifier)
-   where
-      identifier = ("var_" ++) $ show i
+translateVariable :: Name -> QC.Exp
+translateVariable name = mkVar $ nameToId name 
 
-objcAssign :: LVar -> SExp -> QC.Exp
+objcAssign :: Name -> SExp -> QC.Exp
 objcAssign name e = Assign identifier JustAssign value noLoc
   where
     identifier = translateVariable name
-    value = translateExpression e
+    value = translateExpression [] e
 
-objcCall :: Name -> [LVar] -> QC.Exp
+objcCall :: Name -> [Name] -> QC.Exp
 objcCall name xs =
-   FnCall ((mkVar . nameToId) name) (map translateVariable xs) noLoc
+   FnCall (translateVariable name) (map translateVariable xs) noLoc
 
 mkVar :: Id -> QC.Exp
 mkVar ident = QC.Var ident noLoc
 
-objcLet :: LVar -> SExp -> SExp -> QC.Exp
-objcLet name sValue body =
-   Seq (objcAssign name sValue) exprBody noLoc
+mkVarName :: LVar -> Name
+mkVarName (TT.Loc i) = sUN $ "var_" ++ (show i)
+
+objcLet :: [Name] -> LVar -> SExp -> SExp -> QC.Exp
+objcLet names var sValue body =
+  FnCall blockLit [value] noLoc
    where
-     exprBody = (translateExpression body)
+     blockLit = BlockLit (BlockParam [nameToParam name] noLoc) [] items noLoc
+     value = translateExpression [] sValue
+     name = mkVarName var
+     exprBody = translateExpression (names ++ [name]) body
+     items = [ BlockStm (Exp (Just exprBody) noLoc) ]
 
 arithTyToObjCType :: ArithTy -> TypeSpec
 arithTyToObjCType (ATInt iTy) = intTyToObjCType iTy
