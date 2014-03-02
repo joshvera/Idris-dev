@@ -150,13 +150,13 @@ varToName :: [Name] -> LVar -> Name
 varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
 
 translateCase :: Name -> [SAlt] -> QC.Exp
-translateCase var [] = makeReturnExpr (translateVariable var)
-translateCase var [SDefaultCase e] = makeReturnExpr (translateExpression [var] e)
-translateCase var [SConstCase _ e] = makeReturnExpr (translateExpression [var] e)
-translateCase var _ = makeReturnExpr (translateVariable var)
+translateCase var [] = mkReturnExpr (translateVariable var)
+translateCase var [SDefaultCase e] = mkReturnExpr (translateExpression [var] e)
+translateCase var [SConstCase _ e] = mkReturnExpr (translateExpression [var] e)
+translateCase var _ = mkReturnExpr (translateVariable var)
 
-makeReturnExpr :: QC.Exp -> QC.Exp
-makeReturnExpr = mkStmExpr. (:[]) . mkBlockStm . mkReturnStm
+mkReturnExpr :: QC.Exp -> QC.Exp
+mkReturnExpr = mkStmExpr. (:[]) . mkBlockStm . mkReturnStm
 
 mkReturnStm :: QC.Exp -> QC.Stm
 mkReturnStm exp = Return (Just exp) noLoc
