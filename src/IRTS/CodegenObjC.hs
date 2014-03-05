@@ -110,7 +110,7 @@ initMethodImp =
       initAssignment = (BlockStm . mkExprStm) $ objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
       self = (translateVariable $ sUN "self")
       nil = (translateVariable $ sUN "nil")
-      ifSelfEqualsNil = BinOp Eq self nil noLoc
+      ifSelfEqualsNil = objcPtrEquals self nil
       earlyNilReturn = BlockStm $ If ifSelfEqualsNil (mkReturnStm nil) Nothing noLoc
       assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
       assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
@@ -157,7 +157,7 @@ translateExpression _ SNothing = mkVar $ mkId "nil"
 
 translateExpression names (SV var) = (translateVariable . (varToName names)) var
 
-translateExpression names (SChkCase var cases) = translateCase (varToName names var) cases
+translateExpression names (SChkCase var cases) = translateCase names (varToName names var) cases
 
 translateExpression names (SForeign _ _ "putStr" [(_, var)]) =
   objcLog "%@" [(varToName names var)]
@@ -174,11 +174,56 @@ objcCon i names = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCAr
 varToName :: [Name] -> LVar -> Name
 varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
 
-translateCase :: Name -> [SAlt] -> QC.Exp
-translateCase var [] = mkReturnExpr (translateVariable var)
-translateCase var [SDefaultCase e] = mkReturnExpr (translateExpression [var] e)
-translateCase var [SConstCase _ e] = mkReturnExpr (translateExpression [var] e)
-translateCase var _ = mkReturnExpr (translateVariable var)
+translateCase :: [Name] -> Name -> [SAlt] -> QC.Exp
+translateCase _ var [] = 
+  mkReturnExpr (translateVariable var)
+
+translateCase _ var [SDefaultCase e] =
+  mkReturnExpr (translateExpression [var] e)
+
+translateCase _ var [SConstCase _ e] = 
+  mkReturnExpr (translateExpression [var] e)
+
+translateCase names var cases =
+  mkStmExpr [ switchStm ]
+    where
+      switchStm = BlockStm $ Switch constructorId (Block (map BlockStm (caseExps cases)) noLoc) noLoc
+      constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "identifier")) (Const (IntConst "" Signed (-1) noLoc) noLoc) noLoc
+
+      caseExps :: [SAlt] -> [QC.Stm]
+      caseExps [SConCase _ i _ params e] = 
+        [objcCase (objcPtrEquals constructorId (objcNumber i)) (mkReturnStm (translateExpression names e))]
+      caseExps [SConstCase _ e] = 
+        [mkReturnStm (translateExpression names e)]
+      caseExps [SDefaultCase e] = 
+        [mkReturnStm (translateExpression names e)]
+      caseExps ((SConCase _ i _ params e) : xs) =
+        objcCase (objcPtrEquals constructorId (objcNumber i)) (mkReturnStm (translateExpression (names ++ params) e)) : (caseExps xs)
+      caseExps ((SDefaultCase e) : xs) =
+        [mkReturnStm (translateExpression names e)]
+      caseExps ((SConstCase _ e) : xs) =
+        [mkReturnStm (translateExpression names e)]
+
+isIdrisObject :: Name -> QC.Exp
+isIdrisObject name = 
+  ObjCMsg (ObjCRecvExp (translateVariable name) noLoc) [ObjCArg (Just $ mkId "isKindOfClass") (Just cls) noLoc] [] noLoc
+    where
+      cls = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "class") Nothing noLoc] [] noLoc
+
+objcGetProperty :: Name -> Name -> QC.Exp
+objcGetProperty name property = ObjCMsg (ObjCRecvExp (translateVariable name) noLoc) [ObjCArg (Just $ nameToId property) Nothing noLoc] [] noLoc
+
+objcPtrEquals :: QC.Exp -> QC.Exp -> QC.Exp
+objcPtrEquals x y = BinOp Eq x y noLoc
+
+objcCase :: QC.Exp -> QC.Stm -> QC.Stm
+objcCase e stm = Case e (Block [(BlockStm stm), (BlockStm (Break noLoc))] noLoc) noLoc
+
+objcIf :: QC.Exp -> QC.Stm -> Maybe QC.Stm -> QC.Stm
+objcIf e stm elseStm = If e stm elseStm noLoc
+
+objcNumber :: Int -> QC.Exp
+objcNumber i = ObjCLitConst Nothing (IntConst "" Unsigned (toInteger i) noLoc) noLoc
 
 mkReturnExpr :: QC.Exp -> QC.Exp
 mkReturnExpr = mkStmExpr. (:[]) . mkBlockStm . mkReturnStm
@@ -191,7 +236,6 @@ mkBlockStm stm = BlockStm stm
 
 mkStmExpr :: [QC.BlockItem] -> QC.Exp
 mkStmExpr items = StmExpr items noLoc
-
 
 mkId :: String -> QC.Id
 mkId ident = Id ident noLoc
