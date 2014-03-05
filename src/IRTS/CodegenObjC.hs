@@ -188,21 +188,34 @@ translateCase names var cases =
   mkStmExpr [ switchStm ]
     where
       switchStm = BlockStm $ Switch constructorId (Block (map BlockStm (caseExps cases)) noLoc) noLoc
-      constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "identifier")) (Const (IntConst "" Signed (-1) noLoc) noLoc) noLoc
+      constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "identifier")) (translateVariable $ sUN "NSNotFound") noLoc
 
       caseExps :: [SAlt] -> [QC.Stm]
       caseExps [SConCase _ i _ params e] = 
         [objcCase (objcPtrEquals constructorId (objcNumber i)) (mkReturnStm (translateExpression names e))]
       caseExps [SConstCase _ e] = 
-        [mkReturnStm (translateExpression names e)]
+        [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps [SDefaultCase e] = 
-        [mkReturnStm (translateExpression names e)]
-      caseExps ((SConCase _ i _ params e) : xs) =
-        objcCase (objcPtrEquals constructorId (objcNumber i)) (mkReturnStm (translateExpression (names ++ params) e)) : (caseExps xs)
+        [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
+      caseExps ((SConCase parentStackPos i _ params e) : xs) =
+        objcCase (translateVariable . sUN $ show (debugLog "parentStackPos:" $ show parentStackPos)) conCaseStm : (caseExps xs)
+          where
+            conCaseStm = Block (map (BlockStm . mkStm) statements) noLoc
+            statements = (mapInd assignmentExpr params) ++ [mkReturnExpr (translateExpression (names ++ params) e)]
+            assignmentExpr name i = objcAssignExp name (objcObjectAtIndex (objcGetProperty var (sUN "arguments")) i)
       caseExps ((SDefaultCase e) : xs) =
-        [mkReturnStm (translateExpression names e)]
+        [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps ((SConstCase _ e) : xs) =
-        [mkReturnStm (translateExpression names e)]
+        [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
+
+mkStm :: Exp -> Stm
+mkStm e = Exp (Just e) noLoc
+
+mapInd :: (a -> Int -> b) -> [a] -> [b]
+mapInd f l = zipWith f l [0..]
+
+mkDefaultStm :: Stm -> Stm
+mkDefaultStm stm = Default stm noLoc
 
 isIdrisObject :: Name -> QC.Exp
 isIdrisObject name = 
@@ -212,6 +225,9 @@ isIdrisObject name =
 
 objcGetProperty :: Name -> Name -> QC.Exp
 objcGetProperty name property = ObjCMsg (ObjCRecvExp (translateVariable name) noLoc) [ObjCArg (Just $ nameToId property) Nothing noLoc] [] noLoc
+
+objcObjectAtIndex :: QC.Exp -> Int -> QC.Exp
+objcObjectAtIndex array n = ObjCMsg (ObjCRecvExp array noLoc) [ObjCArg (Just $ mkId "objectAtIndex") (Just $ (translateVariable . sUN) (show n)) noLoc] [] noLoc
 
 objcPtrEquals :: QC.Exp -> QC.Exp -> QC.Exp
 objcPtrEquals x y = BinOp Eq x y noLoc
