@@ -198,15 +198,22 @@ translateCase names var cases =
       caseExps [SDefaultCase e] = 
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps ((SConCase parentStackPos i _ params e) : xs) =
-        objcCase (translateVariable . sUN $ show (debugLog "parentStackPos:" $ show parentStackPos)) conCaseStm : (caseExps xs)
+        objcCase (translateVariable . sUN $ show i) conCaseStm : (caseExps xs)
           where
-            conCaseStm = Block (map (BlockStm . mkStm) statements) noLoc
-            statements = (mapInd assignmentExpr params) ++ [mkReturnExpr (translateExpression (names ++ params) e)]
-            assignmentExpr name i = objcAssignExp name (objcObjectAtIndex (objcGetProperty var (sUN "arguments")) i)
+            conCaseStm = Block statements noLoc
+            statements = (mapInd assignmentExpr params) ++ [BlockStm $ mkReturnStm (translateExpression (names ++ params) e)]
+
+            assignmentExpr name i = objcAssignInitExp (Tnamed (mkId "id") [] noLoc) name (objcObjectAtIndex (objcGetProperty var (sUN "arguments")) i)
       caseExps ((SDefaultCase e) : xs) =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps ((SConstCase _ e) : xs) =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
+
+objcAssignInitExp :: TypeSpec -> Name -> Exp -> BlockItem
+objcAssignInitExp ty name exp = BlockDecl $ cinitGroup (cdeclSpec [] [] ty) [] [init]
+  where
+    init = Init (nameToId name) (DeclRoot noLoc) Nothing (Just initializer) [] noLoc
+    initializer = ExpInitializer exp noLoc
 
 mkStm :: Exp -> Stm
 mkStm e = Exp (Just e) noLoc
