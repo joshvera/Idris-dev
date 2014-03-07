@@ -163,13 +163,25 @@ translateDeclaration names exp@(SError error) =
   [ BlockStm $ (Exp (Just $ translateExpression names exp) noLoc) ] ++
   translateDeclaration names SNothing
 
+translateDeclaration names exp@(SForeign _ _ "putStr" _) =
+  [ BlockStm $ (Exp (Just $ translateExpression names exp) noLoc) ] ++
+  translateDeclaration names SNothing
+
+translateDeclaration names exp@(SOp _ _) =
+  [ BlockStm $ (Exp (Just $ translateExpression names exp) noLoc) ] ++
+  translateDeclaration names SNothing
+
 translateDeclaration names exp =
   [(BlockStm . mkReturnStm) $ translateExpression names exp]
 
 translateExpression :: [Name] -> SExp -> QC.Exp
 
-translateExpression _ (SConst constant) =
-  Const (translateConstant constant) noLoc
+translateExpression _ (SConst constant)
+  | (Str s) <- constant
+  = ObjCLitString [cConstant] noLoc
+  | otherwise = Const cConstant noLoc
+    where
+      cConstant = (translateConstant constant)
 
 translateExpression names (SApp tc name vars) =
    objcCall name (map (varToName names) vars)
