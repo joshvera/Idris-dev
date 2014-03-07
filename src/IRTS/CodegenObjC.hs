@@ -294,7 +294,7 @@ objcLet names var sValue body =
   FnCall blockLit [value] noLoc
    where
      blockLit = BlockLit (BlockParam [nameToParam name] noLoc) [] items noLoc
-     value = translateExpression [] sValue
+     value = translateExpression names sValue
      name = mkVarName var
      exprBody = translateExpression (names ++ [name]) body
      items = [ BlockStm (Exp (Just exprBody) noLoc) ]
