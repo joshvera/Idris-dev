@@ -161,7 +161,7 @@ translateExpression _ (SError error) =
 translateExpression names (SUpdate var e) =
   objcAssign (varToName names var) e
 
-translateExpression _ SNothing = mkVar $ mkId "nil"
+translateExpression _ SNothing = mkVar $ mkId "NSNull.null"
 
 translateExpression names (SV var) = (translateVariable . (varToName names)) var
 
