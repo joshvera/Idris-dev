@@ -31,11 +31,32 @@ codegenObjC globalInit definitions filename headers libs outputType = generateOb
 generateObjCFile :: [(Name, SDecl)] -> FilePath ->  IO ()
 generateObjCFile definitions filename = do
   putStrLn (show definitions)
-  writeFile filename $ pretty 80 (ppr $ classes ++ functions)
+  writeFile filename $ pretty 80 (ppr $ classes ++ functions ++ [mainDef])
     where
       classes = idrisObjectClassDefs
       functions :: [Definition]
       functions = sortBy (comparing cConstructors) $ concatMap translateDeclarations definitions
+
+mainDef :: Definition
+mainDef = FuncDef func noLoc
+  where
+    func = Func declSpec name noDecl params blockItems noLoc
+    declSpec = cdeclSpec [] [] intTypeSpec 
+    name = nameToId $ sUN "main"
+    params = Params mainParams False noLoc
+    blockItems = [ BlockStm $ mkExprStm $ objcCall (sMN 0 "runMain") []
+                 , (BlockStm . mkReturnStm . translateVariable . sUN) "0"
+                 ]
+
+mainParams :: [Param]
+mainParams = [Param (Just $ mkId "argc") intDeclSpec noDecl noLoc, Param (Just $ mkId "argv") charDeclSpec arrayPtrDecl noLoc]
+  where
+    charDeclSpec = cdeclSpec [] [] (Tchar Nothing noLoc)
+    arrayPtrDecl = Array [] (NoArraySize noLoc) (Ptr [] noDecl noLoc) noLoc
+
+intDeclSpec = cdeclSpec [] [] (Tint Nothing noLoc)
+
+noDecl = DeclRoot noLoc
 
 cConstructors :: Definition -> Int
 cConstructors (DecDef _ _) = 0
@@ -141,6 +162,9 @@ nsIntegerType = QC.Type (cdeclSpec [] [] (mkObjectTypeSpec "NSInteger")) (DeclRo
 
 mkObjectTypeSpec :: String -> QC.TypeSpec
 mkObjectTypeSpec s = (Tnamed (mkId s) [] noLoc)
+
+intTypeSpec :: QC.TypeSpec
+intTypeSpec = Tint Nothing noLoc
 
 toObjCProperty :: String -> String -> ObjCIfaceDecl
 toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
