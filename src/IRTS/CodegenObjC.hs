@@ -40,11 +40,10 @@ translateDeclarations (path, fun) = [FuncDef (objcFun fun) noLoc]
 
 objcFun :: SDecl -> Func
 objcFun (SFun name paramNames stackSize body) =
-   Func declSpec identifier decl params blockItems noLoc
+   Func declSpec identifier cPtrDecl params blockItems noLoc
       where
-         declSpec = cdeclSpec [Tstatic noLoc] [] (Tvoid noLoc)
-         identifier = nameToId (debugLog "Translating fun:" name)
-         decl = DeclRoot noLoc
+         declSpec = cdeclSpec [Tstatic noLoc] [] (mkObjectTypeSpec "NSObject")
+         identifier = nameToId name
          -- Fix me: figure out where to find types of params
          params = Params (map nameToParam paramNames) False noLoc
          blockItems = [translateDeclaration paramNames body]
@@ -125,7 +124,10 @@ mkExprStm :: QC.Exp -> QC.Stm
 mkExprStm exp = Exp (Just exp) noLoc
 
 mkObjectType :: String -> QC.Type
-mkObjectType s = QC.Type (cdeclSpec [] [] (Tnamed (mkId s) [] noLoc)) cPtrDecl noLoc
+mkObjectType s = QC.Type (cdeclSpec [] [] (mkObjectTypeSpec s)) cPtrDecl noLoc
+
+mkObjectTypeSpec :: String -> QC.TypeSpec
+mkObjectTypeSpec s = (Tnamed (mkId s) [] noLoc)
 
 toObjCProperty :: String -> String -> ObjCIfaceDecl
 toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
