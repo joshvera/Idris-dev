@@ -105,7 +105,12 @@ idrisObjectClassDefs =
 
 initMethodImp :: [QC.BlockItem]
 initMethodImp =
-  exprs
+  [ initAssignment
+  , earlyNilReturn
+  , assignIdentifier
+  , assignArray
+  , returnSelf
+  ]
     where
       initAssignment = (BlockStm . mkExprStm) $ objcAssignExp (sUN "self") (ObjCMsg (ObjCRecvSuper noLoc) [(ObjCArg (Just (mkId "init")) Nothing noLoc)] [] noLoc)
       self = (translateVariable $ sUN "self")
@@ -115,12 +120,6 @@ initMethodImp =
       assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
       assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
       returnSelf = (BlockStm . mkReturnStm) self
-      exprs = [ initAssignment
-              , earlyNilReturn
-              , assignIdentifier
-              , assignArray
-              , returnSelf
-              ]
 
 mkExprStm :: QC.Exp -> QC.Stm
 mkExprStm exp = Exp (Just exp) noLoc
