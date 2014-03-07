@@ -91,7 +91,7 @@ idrisObjectClassDefs :: [QC.Definition]
 idrisObjectClassDefs =
    [interface, implementation]
       where
-         interface = ObjCClassIface className Nothing [] [] properties [] noLoc
+         interface = ObjCClassIface className (Just $ mkId "NSObject") [] [] properties [] noLoc
          implementation = ObjCClassImpl className Nothing [] methods noLoc
          className = nameToId $ sUN "IdrisObject"
 
