@@ -297,7 +297,7 @@ objcLet names var sValue body =
      value = translateExpression names sValue
      name = mkVarName var
      exprBody = translateExpression (names ++ [name]) body
-     items = [ BlockStm (Exp (Just exprBody) noLoc) ]
+     items = [(BlockStm . mkReturnStm) exprBody]
 
 arithTyToObjCType :: ArithTy -> TypeSpec
 arithTyToObjCType (ATInt iTy) = intTyToObjCType iTy
