@@ -169,7 +169,10 @@ translateExpression _ e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
 objcCon :: Int -> [Name] -> QC.Exp
-objcCon i names = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "new") Nothing noLoc] [] noLoc
+objcCon i names = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "initWithIdentifier") ((Just . translateVariable . sUN . show) i) noLoc, ObjCArg (Just $ mkId "arguments") (Just $ objcArray names) noLoc] [] noLoc
+
+objcArray :: [Name] -> QC.Exp
+objcArray vars = ObjCLitArray (map translateVariable vars) noLoc
 
 varToName :: [Name] -> LVar -> Name
 varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
