@@ -96,10 +96,10 @@ idrisObjectClassDefs =
          className = nameToId $ sUN "IdrisObject"
 
          methodType = Type (cdeclSpec [] [] (Tnamed (mkId "instancetype") [] noLoc)) (DeclRoot noLoc) noLoc
-         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just $ mkObjectType "NSNumber") [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc)
+         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just nsIntegerType) [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc)
          methodImplementation = initMethodImp
          methodInterface = ObjCIfaceMeth methodPrototype noLoc
-         properties = [toObjCProperty "NSNumber" "identifier",toObjCProperty "NSArray" "arguments", methodInterface]
+         properties = [toObjCPrimitiveProperty "NSInteger" "identifier",toObjCProperty "NSArray" "arguments", methodInterface]
          methods = [ObjCMethDef methodPrototype initMethodImp noLoc]
 
 initMethodImp :: [QC.BlockItem]
@@ -117,7 +117,7 @@ initMethodImp =
       ifSelfEqualsNil = objcPtrEquals self nil
       earlyNilReturn = BlockStm $ If ifSelfEqualsNil (mkReturnStm nil) Nothing noLoc
       assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
-      assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_array") (translateVariable $ sUN "array")
+      assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_arguments") (translateVariable $ sUN "arguments")
       returnSelf = (BlockStm . mkReturnStm) self
 
 mkExprStm :: QC.Exp -> QC.Stm
@@ -126,13 +126,21 @@ mkExprStm exp = Exp (Just exp) noLoc
 mkObjectType :: String -> QC.Type
 mkObjectType s = QC.Type (cdeclSpec [] [] (mkObjectTypeSpec s)) cPtrDecl noLoc
 
+nsIntegerType :: QC.Type
+nsIntegerType = QC.Type (cdeclSpec [] [] (mkObjectTypeSpec "NSInteger")) (DeclRoot noLoc) noLoc
+
 mkObjectTypeSpec :: String -> QC.TypeSpec
 mkObjectTypeSpec s = (Tnamed (mkId s) [] noLoc)
 
 toObjCProperty :: String -> String -> ObjCIfaceDecl
 toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, ObjCReadonly noLoc] fieldGroup noLoc
    where
-      fieldGroup = FieldGroup (cdeclSpec [] [] (Tnamed (mkId cls) [] noLoc)) [Field (Just $ mkId name) (Just cPtrDecl) Nothing noLoc] noLoc
+      fieldGroup = FieldGroup (cdeclSpec [] [] (mkObjectTypeSpec cls)) [Field (Just $ mkId name) (Just cPtrDecl) Nothing noLoc] noLoc
+
+toObjCPrimitiveProperty :: String -> String -> ObjCIfaceDecl
+toObjCPrimitiveProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCAssign noLoc, ObjCReadonly noLoc] fieldGroup noLoc
+   where
+      fieldGroup = FieldGroup (cdeclSpec [] [] (mkObjectTypeSpec cls)) [Field (Just $ mkId name) (Just (DeclRoot noLoc)) Nothing noLoc] noLoc
 
 mkVarId :: LVar -> Id
 mkVarId (TT.Loc i) = mkId $ ("var_" ++) $ show i
