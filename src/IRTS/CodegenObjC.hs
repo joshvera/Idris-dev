@@ -56,10 +56,10 @@ objcFun (SFun name paramNames stackSize body) =
          identifier = nameToId name
          -- Fix me: figure out where to find types of params
          params = Params (map nameToParam paramNames) False noLoc
-         blockItems = [translateDeclaration paramNames body]
+         blockItems = translateDeclaration paramNames body
 
 nameToParam :: Name -> Param
-nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) cPtrDecl noLoc
+nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "id") [] noLoc)) (DeclRoot noLoc) noLoc
 
 cPtrDecl :: Decl
 cPtrDecl = Ptr [] (DeclRoot noLoc) noLoc
@@ -106,10 +106,10 @@ idrisObjectClassDefs =
          className = nameToId $ sUN "IdrisObject"
 
          methodType = Type (cdeclSpec [] [] (Tnamed (mkId "instancetype") [] noLoc)) (DeclRoot noLoc) noLoc
-         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just nsIntegerType) [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "arguments") (Just $ mkObjectType "NSArray") [] (Just $ mkId "arguments") noLoc] False [] noLoc)
+         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithConstructorID")) (Just nsIntegerType) [] (Just $ mkId "constructorID") noLoc, ObjCParam (Just $ mkId "arguments") (Just $ mkObjectType "NSArray") [] (Just $ mkId "arguments") noLoc] False [] noLoc)
          methodImplementation = initMethodImp
          methodInterface = ObjCIfaceMeth methodPrototype noLoc
-         properties = [toObjCPrimitiveProperty "NSInteger" "identifier",toObjCProperty "NSArray" "arguments", methodInterface]
+         properties = [toObjCPrimitiveProperty "NSInteger" "constructorID",toObjCProperty "NSArray" "arguments", methodInterface]
          methods = [ObjCMethDef methodPrototype initMethodImp noLoc]
 
 initMethodImp :: [QC.BlockItem]
@@ -126,7 +126,7 @@ initMethodImp =
       nil = (translateVariable $ sUN "nil")
       ifSelfEqualsNil = objcPtrEquals self nil
       earlyNilReturn = BlockStm $ If ifSelfEqualsNil (mkReturnStm nil) Nothing noLoc
-      assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_identifier") (translateVariable $ sUN "identifier")
+      assignIdentifier = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_constructorID") (translateVariable $ sUN "constructorID")
       assignArray = (BlockStm . mkExprStm) $ objcAssignExp (sUN "_arguments") (translateVariable $ sUN "arguments")
       returnSelf = (BlockStm . mkReturnStm) self
 
@@ -155,12 +155,16 @@ toObjCPrimitiveProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCAssig
 mkVarId :: LVar -> Id
 mkVarId (TT.Loc i) = mkId $ ("var_" ++) $ show i
 
-translateDeclaration :: [Name] -> SExp -> QC.BlockItem
+translateDeclaration :: [Name] -> SExp -> [QC.BlockItem]
 translateDeclaration names exp@(SChkCase var cases) =
-  BlockStm $ translateCaseStm names (varToName names var) cases
+  [BlockStm $ translateCaseStm names (varToName names var) cases]
+
+translateDeclaration names exp@(SError error) =
+  [ BlockStm $ (Exp (Just $ translateExpression names exp) noLoc) ] ++
+  translateDeclaration names SNothing
 
 translateDeclaration names exp =
-  (BlockStm . mkReturnStm) $ translateExpression names exp
+  [(BlockStm . mkReturnStm) $ translateExpression names exp]
 
 translateExpression :: [Name] -> SExp -> QC.Exp
 
@@ -195,7 +199,7 @@ translateExpression _ e =
   printError $ "Not yet implemented: " ++ filter (/= '\'') (show e)
 
 objcCon :: Int -> [Name] -> QC.Exp
-objcCon i names = ObjCMsg (ObjCRecvExp allocExp noLoc) [ObjCArg (Just $ mkId "initWithIdentifier") ((Just . translateVariable . sUN . show) i) noLoc, ObjCArg (Just $ mkId "arguments") (Just $ objcArray names) noLoc] [] noLoc
+objcCon i names = ObjCMsg (ObjCRecvExp allocExp noLoc) [ObjCArg (Just $ mkId "initWithConstructorID") ((Just . translateVariable . sUN . show) i) noLoc, ObjCArg (Just $ mkId "arguments") (Just $ objcArray names) noLoc] [] noLoc
   where
     allocExp = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "alloc") Nothing noLoc] [] noLoc
 
@@ -218,7 +222,7 @@ translateCaseStm _ var [SConstCase _ e] =
 translateCaseStm names var cases =
   Switch constructorId (Block (map BlockStm (caseExps cases)) noLoc) noLoc
     where
-      constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "identifier")) (translateVariable $ sUN "NSNotFound") noLoc
+      constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "constructorID")) (translateVariable $ sUN "NSNotFound") noLoc
 
       caseExps :: [SAlt] -> [QC.Stm]
       caseExps [SConCase _ i _ params e] =
