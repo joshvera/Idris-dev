@@ -33,10 +33,10 @@ generateObjCFile definitions filename = do
     where
       classes = idrisObjectClassDefs
       functions :: [Definition]
-      functions = concatMap translateDeclaration definitions
+      functions = concatMap translateDeclarations definitions
 
-translateDeclaration :: (Name, SDecl) -> [Definition]
-translateDeclaration (path, fun) = [FuncDef (objcFun fun) noLoc]
+translateDeclarations :: (Name, SDecl) -> [Definition]
+translateDeclarations (path, fun) = [FuncDef (objcFun fun) noLoc]
 
 objcFun :: SDecl -> Func
 objcFun (SFun name paramNames stackSize body) =
@@ -47,7 +47,7 @@ objcFun (SFun name paramNames stackSize body) =
          decl = DeclRoot noLoc
          -- Fix me: figure out where to find types of params
          params = Params (map nameToParam paramNames) False noLoc
-         blockItems = [BlockStm (Exp (Just $ translateExpression paramNames body) noLoc)]
+         blockItems = [translateDeclaration paramNames body]
 
 nameToParam :: Name -> Param
 nameToParam name = Param (Just $ nameToId name) (cdeclSpec [] [] (Tnamed (mkId "NSObject") [] noLoc)) cPtrDecl noLoc
@@ -136,6 +136,13 @@ toObjCProperty cls name = ObjCIfaceProp [ObjCNonatomic noLoc, ObjCStrong noLoc, 
 mkVarId :: LVar -> Id
 mkVarId (TT.Loc i) = mkId $ ("var_" ++) $ show i
 
+translateDeclaration :: [Name] -> SExp -> QC.BlockItem
+translateDeclaration names exp@(SChkCase var cases) =
+  BlockStm $ translateCaseStm names (varToName names var) cases
+
+translateDeclaration names exp =
+  (BlockStm . mkReturnStm) $ translateExpression names exp
+
 translateExpression :: [Name] -> SExp -> QC.Exp
 
 translateExpression _ (SConst constant) =
@@ -177,28 +184,27 @@ objcArray vars = ObjCLitArray (map translateVariable vars) noLoc
 varToName :: [Name] -> LVar -> Name
 varToName names (TT.Loc i) = (debugLog "varToName" names) !! i
 
-translateCase :: [Name] -> Name -> [SAlt] -> QC.Exp
-translateCase _ var [] = 
-  mkReturnExpr (translateVariable var)
+translateCaseStm :: [Name] -> Name -> [SAlt] -> QC.Stm
+translateCaseStm _ var [] =
+  mkReturnStm (translateVariable var)
 
-translateCase _ var [SDefaultCase e] =
-  mkReturnExpr (translateExpression [var] e)
+translateCaseStm _ var [SDefaultCase e] =
+  mkReturnStm (translateExpression [var] e)
 
-translateCase _ var [SConstCase _ e] = 
-  mkReturnExpr (translateExpression [var] e)
+translateCaseStm _ var [SConstCase _ e] =
+  mkReturnStm (translateExpression [var] e)
 
-translateCase names var cases =
-  mkStmExpr [ switchStm ]
+translateCaseStm names var cases =
+  Switch constructorId (Block (map BlockStm (caseExps cases)) noLoc) noLoc
     where
-      switchStm = BlockStm $ Switch constructorId (Block (map BlockStm (caseExps cases)) noLoc) noLoc
       constructorId = Cond (isIdrisObject var) (objcGetProperty var (sUN "identifier")) (translateVariable $ sUN "NSNotFound") noLoc
 
       caseExps :: [SAlt] -> [QC.Stm]
-      caseExps [SConCase _ i _ params e] = 
+      caseExps [SConCase _ i _ params e] =
         [objcCase (objcPtrEquals constructorId (objcNumber i)) (mkReturnStm (translateExpression names e))]
-      caseExps [SConstCase _ e] = 
+      caseExps [SConstCase _ e] =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
-      caseExps [SDefaultCase e] = 
+      caseExps [SDefaultCase e] =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps ((SConCase parentStackPos i _ params e) : xs) =
         objcCase (translateVariable . sUN $ show i) conCaseStm : (caseExps xs)
@@ -211,6 +217,10 @@ translateCase names var cases =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
       caseExps ((SConstCase _ e) : xs) =
         [(mkDefaultStm . mkReturnStm) (translateExpression names e)]
+
+translateCase :: [Name] -> Name -> [SAlt] -> QC.Exp
+translateCase names var cases =
+  mkBlockStmExpr $ translateCaseStm names var []
 
 objcAssignInitExp :: TypeSpec -> Name -> Exp -> BlockItem
 objcAssignInitExp ty name exp = BlockDecl $ cinitGroup (cdeclSpec [] [] ty) [] [init]
@@ -228,7 +238,7 @@ mkDefaultStm :: Stm -> Stm
 mkDefaultStm stm = Default stm noLoc
 
 isIdrisObject :: Name -> QC.Exp
-isIdrisObject name = 
+isIdrisObject name =
   ObjCMsg (ObjCRecvExp (translateVariable name) noLoc) [ObjCArg (Just $ mkId "isKindOfClass") (Just cls) noLoc] [] noLoc
     where
       cls = ObjCMsg (ObjCRecvClassName (mkId "IdrisObject") noLoc) [ObjCArg (Just $ mkId "class") Nothing noLoc] [] noLoc
@@ -251,8 +261,8 @@ objcIf e stm elseStm = If e stm elseStm noLoc
 objcNumber :: Int -> QC.Exp
 objcNumber i = ObjCLitConst Nothing (IntConst "" Unsigned (toInteger i) noLoc) noLoc
 
-mkReturnExpr :: QC.Exp -> QC.Exp
-mkReturnExpr = mkStmExpr. (:[]) . mkBlockStm . mkReturnStm
+mkBlockStmExpr :: QC.Stm -> QC.Exp
+mkBlockStmExpr = mkStmExpr. (:[]) . mkBlockStm
 
 mkReturnStm :: QC.Exp -> QC.Stm
 mkReturnStm exp = Return (Just exp) noLoc
