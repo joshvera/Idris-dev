@@ -7,6 +7,8 @@ import IRTS.CodegenCommon
 import IRTS.Lang as TT
 import IRTS.Simplified
 
+import Data.List
+import Data.Ord
 import Data.Loc
 import Language.C.Quote as QC
 import Text.PrettyPrint.Mainland
@@ -33,10 +35,18 @@ generateObjCFile definitions filename = do
     where
       classes = idrisObjectClassDefs
       functions :: [Definition]
-      functions = concatMap translateDeclarations definitions
+      functions = sortBy (comparing cConstructors) $ concatMap translateDeclarations definitions
+
+cConstructors :: Definition -> Int
+cConstructors (DecDef _ _) = 0
+cConstructors (FuncDef _ _) = 1
+cConstructors _ = 2
 
 translateDeclarations :: (Name, SDecl) -> [Definition]
-translateDeclarations (path, fun) = [FuncDef (objcFun fun) noLoc]
+translateDeclarations (path, f) = [DecDef initGroup noLoc, FuncDef func noLoc]
+  where
+    func = (objcFun f)
+    initGroup = funcProto func
 
 objcFun :: SDecl -> Func
 objcFun (SFun name paramNames stackSize body) =
@@ -96,7 +106,7 @@ idrisObjectClassDefs =
          className = nameToId $ sUN "IdrisObject"
 
          methodType = Type (cdeclSpec [] [] (Tnamed (mkId "instancetype") [] noLoc)) (DeclRoot noLoc) noLoc
-         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just nsIntegerType) [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "array") (Just $ mkObjectType "NSArray") [] (Just $ mkId "array") noLoc] False [] noLoc)
+         methodPrototype = (ObjCMethodProto False (Just methodType)  [] [ObjCParam (Just (mkId "initWithIdentifier")) (Just nsIntegerType) [] (Just $ mkId "identifier") noLoc, ObjCParam (Just $ mkId "arguments") (Just $ mkObjectType "NSArray") [] (Just $ mkId "arguments") noLoc] False [] noLoc)
          methodImplementation = initMethodImp
          methodInterface = ObjCIfaceMeth methodPrototype noLoc
          properties = [toObjCPrimitiveProperty "NSInteger" "identifier",toObjCProperty "NSArray" "arguments", methodInterface]
