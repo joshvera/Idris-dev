@@ -621,6 +621,8 @@ Library
                 , IRTS.CodegenJava
                 , IRTS.CodegenJavaScript
                 , IRTS.JavaScript.AST
+                , IRTS.CodegenSwift
+                , IRTS.Swift.AST
                 , IRTS.Compiler
                 , IRTS.Defunctionalise
                 , IRTS.DumpBC
