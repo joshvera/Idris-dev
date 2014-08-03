@@ -10,6 +10,7 @@ import IRTS.CodegenC
 import IRTS.CodegenJava
 import IRTS.DumpBC
 import IRTS.CodegenJavaScript
+import IRTS.CodegenSwift
 #ifdef IDRIS_LLVM
 import IRTS.CodegenLLVM
 #else
