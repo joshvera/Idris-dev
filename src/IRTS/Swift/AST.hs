@@ -103,7 +103,7 @@ type TypeIdent = NonEmpty (TypeName, (Maybe GenericArgClause))
 
 type EnumCaseName = Ident
 
-
+type TuplePattern = NonEmpty Pattern
 
 data Pattern = WildcardPattern (Maybe TypeAnnotation)
              | IdentPattern (Maybe TypeAnnotation)
@@ -113,17 +113,88 @@ data Pattern = WildcardPattern (Maybe TypeAnnotation)
              | TypeCastPattern
              | ExprPattern
 
+-- FIXME: Initializers are not quite strings
+data Init = String
+
 data PatternInit = MkPatternInit Pattern (Maybe Init)
 
 type PatternInits = NonEmpty PatternInit
 
-data ConstDecl = MkConstDecl (Maybe Attrs) (Maybe DeclSpecifiers) PatternInits
+data AccessModifier = Internal
+                    | InternalSet
+                    | Private
+                    | PrivateSet
+                    | Public
+                    | PublicSet
+
+type AccessModifiers = NonEmpty AccessModifier
+
+data DeclModifier = Class
+                  | Convenience
+                  | Dynamic
+                  | Final
+                  | Lazy
+                  | Mutating
+                  | NonMutating
+                  | Optional
+                  | Override
+                  | Required
+                  | Static
+                  | Unowned
+                  | UnownedSafe
+                  | UnownedUnsafe
+                  | Weak
+                  | MkAccessModifier AccessModifier
+
+type DeclModifiers = NonEmpty DeclModifier
+
+data ConstDecl = MkConstDecl (Maybe Attrs) (Maybe DeclModifiers) PatternInits
+
+data VarDeclHead = MkVarDeclHead (Maybe Attrs) (Maybe DeclModifiers)
+
+type VarName = Ident
+
+data GetClause = MkGetClause (Maybe Attrs) CodeBlock
+
+data SetClause = MkSetClause (Maybe Attrs) (Maybe SetterName) CodeBlock
+
+type SetterName = Ident
+
+data GetSetBlock = MkGetSetBlock GetClause (Maybe SetClause)
+
+data GetSetKeywordBlock = MkGetSetKeywordBlock GetKeywordClause (Maybe SetKeywordClause)
+
+data GetKeywordClause = MkGetKeywordClause (Maybe Attrs)
+
+data SetKeywordClause = MkSetKeywordClause (Maybe Attrs)
+
+data WillSetClause = MkWillSetClause (Maybe Attrs) (Maybe SetterName) CodeBlock
+
+data DidSetClause = MkDidSetClause (Maybe Attrs) (Maybe SetterName) CodeBlock
+
+data WillSetDidSetBlock = MkWillDidSetBlock WillSetClause (Maybe DidSetClause)
 
 data VarDecl = EmptyDecl VarDeclHead PatternInits
              | BlockDecl VarDeclHead VarName TypeAnnotation CodeBlock
              | GetSetDecl VarDeclHead VarName TypeAnnotation GetSetBlock
              | GetSetKeywordDecl VarDeclHead VarName TypeAnnotation GetSetKeywordBlock
-             | WillSetDidSetDecl VarDeclHead VarName TypeAnnotation (Maybe Init) WillSetDidSetDecl
+             | WillSetDidSetDecl VarDeclHead VarName TypeAnnotation (Maybe Init) WillSetDidSetBlock
+
+data TypealiasDecl = MkTypealiasDecl TypealiasHead TypealiasAssign
+
+data TypealiasHead = MkTypeAliasHead (Maybe Attrs) (Maybe AccessModifier) TypealiasName
+
+type TypealiasName = Ident
+
+type TypealiasAssign = SwiftType
+
+data ImportDecl = MkImportDecl (Maybe Attrs) (Maybe ImportKind) ImportPath
+
+data ImportKind = TypealiasImport | StructImport | ClassImport | EnumImport | ProtocolImport | VarImport | FuncImport
+
+type ImportPath = NonEmpty ImportPathIdent
+
+data ImportPathIdent = Ident | Op
 
 data Decl = ImportDecl
           | ConstDecl
@@ -140,3 +211,5 @@ data Decl = ImportDecl
           | SubscriptDecl
           | OpDecl
           | MkDecl Decl (Maybe Declarations)
+
+type Declarations = NonEmpty Decl
