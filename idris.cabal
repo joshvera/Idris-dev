@@ -675,6 +675,7 @@ Library
                 , pretty
                 , process
                 , split
+                , semigroups >= 0.15.2
                 , text
                 , time >= 1.4
                 , transformers
