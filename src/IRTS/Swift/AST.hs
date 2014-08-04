@@ -1,11 +1,21 @@
 module IRTS.Swift.AST where
 
+import Prelude hiding (Enum)
 import Data.List.NonEmpty
+
+data TupleTy = TupleTy (Maybe TupleTyElements) | VariableTupleTy (Maybe TupleTyElements)
+
+type TupleTyElements = NonEmpty TupleTyElement
+
+type ElementName = Ident
+
+data TupleTyElement = TupleTyElement (Maybe Attrs) (Maybe InOutIdent) SwiftType
+                    | AnnotatedTupleTyElement (Maybe InOutIdent) ElementName TypeAnnotation
 
 data SwiftType = ArrayTy
                | FunTy
                | IdentTy
-               | TupleTy
+               | TupleType TupleTy
                | OptionalTy
                | ImplicitOptionalTy
                | ProtocolTy
@@ -73,9 +83,9 @@ type BinExprs = NonEmpty BinExpr
 
 data Expr = MkExpr PreExpr (Maybe BinExpr)
 
-data ExprList = NonEmpty Expr
+type Exprs = NonEmpty Expr
 
-data ForInit = ForVar VarDecl | ForExprs ExprList
+data ForInit = ForVar VarDecl | ForExprs Exprs
 
 data CodeBlock = CodeBlock (Maybe Statements)
 
@@ -188,7 +198,7 @@ type TypealiasName = Ident
 
 type TypealiasAssign = SwiftType
 
-data ImportDecl = MkImportDecl (Maybe Attrs) (Maybe ImportKind) ImportPath
+data Import = Import (Maybe Attrs) (Maybe ImportKind) ImportPath
 
 data ImportKind = TypealiasImport | StructImport | ClassImport | EnumImport | ProtocolImport | VarImport | FuncImport
 
@@ -214,7 +224,7 @@ type GenericParams = NonEmpty GenericParam
 
 data GenericParamClause = MkGenericParamClause GenericParams (Maybe ReqClause)
 
-data FunDecl = FunHead FunName (Maybe GenericParamClause) FunSignature FunBody 
+data FunDecl = FunHead FunName (Maybe GenericParamClause) FunSignature FunBody
 
 data FunHead = MkFunHead (Maybe Attrs) (Maybe DeclModifiers)
 
@@ -248,12 +258,43 @@ data Param = MkParam (Maybe InOutIdent) (Maybe LetIdent) (Maybe HashIdent) (Mayb
 
 type ParamClauses = NonEmpty ParamClause
 
-data Decl = ImportDecl
+-- TODO this should be a literal
+data ValueAssign = ValueAssign
+
+data ValueEnumCase = MkValueEnumCase EnumCaseName (Maybe ValueAssign)
+
+type ValueEnumCases = NonEmpty ValueEnumCase
+
+data ValueCaseClause = MkValueCaseClause (Maybe Attrs) ValueEnumCases
+
+data ValueMember = MkValueMember Decl | ValueCaseClause
+
+type ValueMembers = NonEmpty UnionMember
+
+data ValueEnum = MkValueEnum EnumName (Maybe GenericParamClause) TypeIdent (Maybe ValueMembers)
+
+type EnumName = Ident
+
+data UnionEnumCase = MkUnionEnumCase EnumCaseName (Maybe TupleTy)
+
+type UnionEnumCases = NonEmpty UnionEnumCase
+
+data UnionCaseClause = MkUnionCaseClause (Maybe Attrs) UnionEnumCases
+
+data UnionMember = MkUnionDeclMember Decl | MkUnionCaseMember UnionCaseClause
+
+data UnionMembers = NonEmpty UnionMember
+
+data UnionEnum = MkUnionEnum EnumName (Maybe GenericParamClause) (Maybe UnionMembers)
+
+data Enum = Enum (Maybe Attrs) (Maybe AccessModifier) UnionEnum | ValueEnum (Maybe Attrs) (Maybe AccessModifier) ValueEnum
+
+data Decl = ImportDecl Import
           | ConstDecl
           | VarDecl
           | TypealiasDecl
           | FunDecl
-          | EnumDecl
+          | EnumDecl Enum
           | StructDecl
           | ClassDecl
           | ProtocolDecl
