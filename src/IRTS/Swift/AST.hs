@@ -79,7 +79,11 @@ data Loop = ForLoop For
           | WhileLoop While
           | DoWhileLoop DoWhile
 
-data OpChar = Div
+
+data Op = PrefixOp PreOp | PostfixOp PostOp | InfixOp InOp
+
+-- TODO add valid unicode chars
+data OpHead = Div
             | Eq
             | Sub
             | Add
@@ -92,13 +96,29 @@ data OpChar = Div
             | Or
             | Caret
             | Tilde
-            | Dot
 
-data Op = MkOp OpChar (Maybe Op)
+-- TODO Add valid Unicode chars
+data OpChar = OpHeadChar OpHead
 
-type BinOp = Op
-type PreOp = Op
-type PostOp = Op
+type OpChars = NonEmpty OpChar
+
+data DotOpHead = DotOpHead
+
+data DotOpChar = DotOpChar OpChar | DotOpDot
+
+type DotOpChars = NonEmpty DotOpChar
+
+data OpToken = OpToken OpHead (Maybe OpChars) | DotOpToken DotOpHead (Maybe DotOpChars)
+
+data PreOp = PreOp OpToken
+data PostOp = PostOp OpToken
+
+data PrecedenceClause = PrecedenceClause Int
+
+data AssocClause = Left | Right | None
+
+data InOpAttrs = InOpAttrs (Maybe PrecedenceClause) (Maybe AssocClause)
+data InOp = InOp OpToken (Maybe InOpAttrs)
 
 data PostExpr = PrimExpr
               | PostOpExpr PostExpr PostOp
@@ -120,6 +140,8 @@ data CondOp = CondOp Expr
 data TypeCastOp = IsCastOp SwiftType
                 | AsCastOp SwiftType
                 | MaybeAsCastOp SwiftType
+
+type BinOp = Op
 
 data BinExpr = BinExpr BinOp PreExpr
              | AssignExpr AssignOp PreExpr
@@ -237,7 +259,7 @@ data Var = EmptyDecl VarDeclHead PatternInits
              | GetSetKeywordDecl VarDeclHead VarName TypeAnnotation GetSetKeywordBlock
              | WillSetDidSetDecl VarDeclHead VarName TypeAnnotation (Maybe Init) WillSetDidSetBlock
 
-data TypealiasDecl = MkTypealiasDecl TypealiasHead TypealiasAssign
+data Typealias = Typealias TypealiasHead TypealiasAssign
 
 data TypealiasHead = MkTypeAliasHead (Maybe Attrs) (Maybe AccessModifier) TypealiasName
 
@@ -271,7 +293,7 @@ type GenericParams = NonEmpty GenericParam
 
 data GenericParamClause = MkGenericParamClause GenericParams (Maybe ReqClause)
 
-data FunDecl = FunHead FunName (Maybe GenericParamClause) FunSignature FunBody
+data Fun = Fun FunHead FunName (Maybe GenericParamClause) FunSignature FunBody
 
 data FunHead = MkFunHead (Maybe Attrs) (Maybe DeclModifiers)
 
@@ -388,20 +410,26 @@ type ProtocolName = Ident
 
 data Protocol = Protocol (Maybe Attrs) (Maybe AccessModifier) ProtocolName (Maybe TypeInheritanceClauses) ProtocolBody
 
+data DeInit = DeInit (Maybe Attrs) CodeBlock
+
+type ExtensionBody = Maybe Declarations
+
+data Extension = Extension (Maybe AccessModifier) TypeIdent (Maybe TypeInheritanceClauses) ExtensionBody
+
 data Decl = ImportDecl Import
           | ConstDecl Const
           | VarDecl Var
-          | TypealiasDecl
-          | FunDecl
+          | TypealiasDecl Typealias
+          | FunDecl Fun
           | EnumDecl Enum
           | StructDecl Struct
-          | ClassDecl
-          | ProtocolDecl
-          | InitDecl
-          | DeinitDecl
-          | ExtDecl
-          | SubscriptDecl
-          | OpDecl
+          | ClassDecl Class
+          | ProtocolDecl Protocol
+          | InitDecl Init
+          | DeInitDecl DeInit
+          | ExtensionDecl Extension
+          | SubscriptDecl Subscript
+          | OpDecl Op
           | MkDecl Decl (Maybe Declarations)
 
 type Declarations = NonEmpty Decl
