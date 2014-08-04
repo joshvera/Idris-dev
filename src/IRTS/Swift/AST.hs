@@ -196,6 +196,24 @@ type ImportPath = NonEmpty ImportPathIdent
 
 data ImportPathIdent = MkImportPathIdent Ident | MkImportPathOp Op
 
+type ProtocolIdent = TypeIdent
+
+type ProtocolIdents = NonEmpty ProtocolIdent
+
+data ProtocolTy = MkProtocolTy ProtocolIdents
+
+data Req = MkConformanceReq TypeIdent TypeIdent | MkProtocolReq TypeIdent ProtocolTy | MkSameTypeReq TypeIdent TypeIdent
+
+type Reqs = NonEmpty Req
+
+data ReqClause = MkReqClause Reqs
+
+data GenericParam = MkGenericParam TypeName | MkConformanceGenericParam TypeName TypeIdent | MkProtocolGenericParam TypeName ProtocolTy
+
+type GenericParams = NonEmpty GenericParam
+
+data GenericParamClause = MkGenericParamClause GenericParams (Maybe ReqClause)
+
 data FunDecl = FunHead FunName (Maybe GenericParamClause) FunSignature FunBody 
 
 data FunHead = MkFunHead (Maybe Attrs) (Maybe DeclModifiers)
@@ -218,9 +236,13 @@ data LetIdent = LetIdent
 
 data HashIdent = HashIdent
 
-data WildcardIdent
+data WildcardIdent = WildcardIdent
 
-data ExtParamName = Ident | WildcardIdent
+data ExtParamName = MkExtIdent Ident | MkExtWildcard WildcardIdent
+
+data LocalParamName = MkLocalIdent Ident | MkLocalWildcard WildcardIdent
+
+type DefaultArgClause = Expr
 
 data Param = MkParam (Maybe InOutIdent) (Maybe LetIdent) (Maybe HashIdent) (Maybe ExtParamName) LocalParamName TypeAnnotation (Maybe DefaultArgClause)
 
