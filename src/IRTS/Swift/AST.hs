@@ -205,7 +205,7 @@ data DeclModifier = ClassMod
 
 type DeclModifiers = NonEmpty DeclModifier
 
-data ConstDecl = MkConstDecl (Maybe Attrs) (Maybe DeclModifiers) PatternInits
+data Const = Const (Maybe Attrs) (Maybe DeclModifiers) PatternInits
 
 data VarDeclHead = VarDeclHead (Maybe Attrs) (Maybe DeclModifiers)
 
@@ -389,7 +389,7 @@ type ProtocolName = Ident
 data Protocol = Protocol (Maybe Attrs) (Maybe AccessModifier) ProtocolName (Maybe TypeInheritanceClauses) ProtocolBody
 
 data Decl = ImportDecl Import
-          | ConstDecl
+          | ConstDecl Const
           | VarDecl Var
           | TypealiasDecl
           | FunDecl
