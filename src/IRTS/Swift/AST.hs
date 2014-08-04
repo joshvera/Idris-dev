@@ -194,7 +194,37 @@ data ImportKind = TypealiasImport | StructImport | ClassImport | EnumImport | Pr
 
 type ImportPath = NonEmpty ImportPathIdent
 
-data ImportPathIdent = Ident | Op
+data ImportPathIdent = MkImportPathIdent Ident | MkImportPathOp Op
+
+data FunDecl = FunHead FunName (Maybe GenericParamClause) FunSignature FunBody 
+
+data FunHead = MkFunHead (Maybe Attrs) (Maybe DeclModifiers)
+
+data FunName = MkFunNameIdent Ident | MkFunNameOp Op
+
+data FunSignature = MkFunSignature ParamClauses (Maybe FunResult)
+
+data FunResult = MkFunResult (Maybe Attrs) SwiftType
+
+type FunBody = CodeBlock
+
+data ParamClause = EmptyClause | MkParamClause Params | MkVariableParamClause Params
+
+type Params = NonEmpty Param
+
+data InOutIdent = InOutIdent
+
+data LetIdent = LetIdent
+
+data HashIdent = HashIdent
+
+data WildcardIdent
+
+data ExtParamName = Ident | WildcardIdent
+
+data Param = MkParam (Maybe InOutIdent) (Maybe LetIdent) (Maybe HashIdent) (Maybe ExtParamName) LocalParamName TypeAnnotation (Maybe DefaultArgClause)
+
+type ParamClauses = NonEmpty ParamClause
 
 data Decl = ImportDecl
           | ConstDecl
