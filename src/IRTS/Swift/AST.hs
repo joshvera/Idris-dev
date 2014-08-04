@@ -21,16 +21,52 @@ data SwiftType = ArrayTy
                | ProtocolTy
                | MetaTy
 
-data Statement = Expr
-              | Decl
-              | Loop
-              | Branch
-              | Labeled
+data SwitchCase = Case CaseLabel Statements | Default DefaultLabel Statements | CasePassthrough CaseLabel | DefaultPassthrough DefaultLabel
 
-data Loop = For
-          | ForIn
-          | While
-          | DoWhile
+data CaseLabel = CaseLabel (NonEmpty CaseItems)
+
+type CaseItems = NonEmpty (Pattern, (Maybe GuardClause))
+
+data DefaultLabel = DefaultLabel
+
+data GuardClause = GuardClause GuardExpr
+
+type GuardExpr = Expr
+
+type LabelName = Ident
+
+data Labeled = LabeledLoop LabelName Loop | LabeledSwitch LabelName Switch
+
+type SwitchCases = NonEmpty SwitchCase
+
+data Switch = Switch Expr (Maybe SwitchCases)
+
+data ElseClause = Else CodeBlock | ElseIf If
+
+data IfCond = IfExpr Expr | IfDecl Decl
+
+data If = If IfCond CodeBlock (Maybe ElseClause)
+
+data Branch = IfBranch If | SwitchBranch Switch
+
+data Statement = ExprStm Expr
+              | DeclStm Decl
+              | LoopStm Loop
+              | BranchStm Branch
+              | LabeledStm Labeled
+
+data ForIn = ForIn Pattern Expr CodeBlock
+
+data While = While WhileCond CodeBlock
+
+data DoWhile = DoWhile CodeBlock While
+
+data WhileCond = WhileExpr Expr | WhileDecl Decl
+
+data Loop = ForLoop For
+          | ForInLoop ForIn
+          | WhileLoop While
+          | DoWhileLoop DoWhile
 
 data OpChar = Div
             | Eq
@@ -89,7 +125,7 @@ data ForInit = ForVar VarDecl | ForExprs Exprs
 
 data CodeBlock = CodeBlock (Maybe Statements)
 
-data For = ForLoop (Maybe ForInit) (Maybe Expr) (Maybe Expr) CodeBlock
+data For = For (Maybe ForInit) (Maybe Expr) (Maybe Expr) CodeBlock
 
 type Statements = NonEmpty Statement
 
@@ -105,6 +141,7 @@ type GenericArg = SwiftType
 
 type GenericArgClause = NonEmpty GenericArg
 
+-- FIXME: Identifiers are not quite strings
 type Ident = String
 
 type TypeName = Ident
@@ -123,10 +160,9 @@ data Pattern = WildcardPattern (Maybe TypeAnnotation)
              | TypeCastPattern
              | ExprPattern
 
--- FIXME: Initializers are not quite strings
-data Init = String
+type InitExpr = Expr
 
-data PatternInit = MkPatternInit Pattern (Maybe Init)
+data PatternInit = MkPatternInit Pattern (Maybe InitExpr)
 
 type PatternInits = NonEmpty PatternInit
 
@@ -139,22 +175,22 @@ data AccessModifier = Internal
 
 type AccessModifiers = NonEmpty AccessModifier
 
-data DeclModifier = Class
-                  | Convenience
-                  | Dynamic
-                  | Final
-                  | Lazy
-                  | Mutating
-                  | NonMutating
-                  | Optional
-                  | Override
-                  | Required
-                  | Static
-                  | Unowned
-                  | UnownedSafe
-                  | UnownedUnsafe
-                  | Weak
-                  | MkAccessModifier AccessModifier
+data DeclModifier = ClassMod
+                  | ConvenienceMod
+                  | DynamicMod
+                  | FinalMod
+                  | LazyMod
+                  | MutatingMod
+                  | NonMutatingMod
+                  | OptionalMod
+                  | OverrideMod
+                  | RequiredMod
+                  | StaticMod
+                  | UnownedMod
+                  | UnownedSafeMod
+                  | UnownedUnsafeMod
+                  | WeakMod
+                  | AccessMod AccessModifier
 
 type DeclModifiers = NonEmpty DeclModifier
 
@@ -289,13 +325,65 @@ data UnionEnum = MkUnionEnum EnumName (Maybe GenericParamClause) (Maybe UnionMem
 
 data Enum = Enum (Maybe Attrs) (Maybe AccessModifier) UnionEnum | ValueEnum (Maybe Attrs) (Maybe AccessModifier) ValueEnum
 
+type TypeInheritanceClauses = NonEmpty TypeIdent
+
+type StructName = Ident
+
+data StructBody = StructBody (Maybe Declarations)
+
+data Struct = Struct (Maybe Attrs) (Maybe AccessModifier) StructName (Maybe GenericParamClause) (Maybe TypeInheritanceClauses) StructBody
+
+data ClassBody = ClassBody (Maybe Declarations)
+
+type ClassName = Ident
+
+data Class = Class (Maybe Attrs) (Maybe AccessModifier) ClassName (Maybe GenericParamClause) (Maybe TypeInheritanceClauses) ClassBody
+
+data InitHead = InitHead (Maybe Attrs) (Maybe DeclModifiers)
+
+type InitBody = CodeBlock
+
+data Init = Init InitHead (Maybe GenericParamClause) ParamClause InitBody
+
+data ProtocolProperty = ProtocolProperty FunHead FunName (Maybe GenericParamClause) FunSignature
+
+data ProtocolMethod = ProtocolMethod FunHead FunName (Maybe GenericParamClause) FunSignature
+
+data ProtocolInit = ProtocolInit InitHead (Maybe GenericParamClause) ParamClause
+
+data SubscriptResult = SubscriptResult (Maybe Attrs) SwiftType
+
+data SubscriptHead = SubscriptHead (Maybe Attrs) (Maybe DeclModifiers) ParamClause
+
+data Subscript = Subscript SubscriptHead SubscriptResult CodeBlock
+               | GetSetSubscript SubscriptHead SubscriptResult GetSetBlock
+               | GetSetKeywordSubscript SubscriptHead SubscriptResult GetSetKeywordBlock
+
+data ProtocolSubscript = ProtocolSubscript SubscriptHead SubscriptResult GetSetKeywordBlock
+
+data ProtocolAssocType = TypealiasHead (Maybe TypeInheritanceClauses) (Maybe TypealiasAssign)
+
+data ProtocolMemberDecl = ProtocolPropertyDecl ProtocolProperty
+                    | ProtocolMethodDecl ProtocolMethod
+                    | ProtocolInitDecl ProtocolInit
+                    | ProtocolSubscriptDecl ProtocolSubscript
+                    | ProtocolAssocTypeDecl ProtocolAssocType
+
+type ProtocolMemberDecls = NonEmpty ProtocolMemberDecl
+
+data ProtocolBody = ProtocolBody (Maybe ProtocolMemberDecls)
+
+type ProtocolName = Ident
+
+data Protocol = Protocol (Maybe Attrs) (Maybe AccessModifier) ProtocolName (Maybe TypeInheritanceClauses) ProtocolBody
+
 data Decl = ImportDecl Import
           | ConstDecl
           | VarDecl
           | TypealiasDecl
           | FunDecl
           | EnumDecl Enum
-          | StructDecl
+          | StructDecl Struct
           | ClassDecl
           | ProtocolDecl
           | InitDecl
