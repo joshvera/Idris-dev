@@ -49,11 +49,22 @@ data If = If IfCond CodeBlock (Maybe ElseClause)
 
 data Branch = IfBranch If | SwitchBranch Switch
 
+data Break = Break (Maybe LabelName)
+
+data Continue = Continue (Maybe LabelName)
+
+data Fallthrough = Fallthrough
+
+data Return = Return (Maybe Expr)
+
+data ControlTransfer = BreakStm Break | ContinueStm Continue | FallthroughStm Fallthrough | ReturnStm Return
+
 data Statement = ExprStm Expr
               | DeclStm Decl
               | LoopStm Loop
               | BranchStm Branch
               | LabeledStm Labeled
+              | ControlTransferStm ControlTransfer
 
 data ForIn = ForIn Pattern Expr CodeBlock
 
@@ -121,7 +132,7 @@ data Expr = MkExpr PreExpr (Maybe BinExpr)
 
 type Exprs = NonEmpty Expr
 
-data ForInit = ForVar VarDecl | ForExprs Exprs
+data ForInit = ForVar Var | ForExprs Exprs
 
 data CodeBlock = CodeBlock (Maybe Statements)
 
@@ -196,7 +207,7 @@ type DeclModifiers = NonEmpty DeclModifier
 
 data ConstDecl = MkConstDecl (Maybe Attrs) (Maybe DeclModifiers) PatternInits
 
-data VarDeclHead = MkVarDeclHead (Maybe Attrs) (Maybe DeclModifiers)
+data VarDeclHead = VarDeclHead (Maybe Attrs) (Maybe DeclModifiers)
 
 type VarName = Ident
 
@@ -220,7 +231,7 @@ data DidSetClause = MkDidSetClause (Maybe Attrs) (Maybe SetterName) CodeBlock
 
 data WillSetDidSetBlock = MkWillDidSetBlock WillSetClause (Maybe DidSetClause)
 
-data VarDecl = EmptyDecl VarDeclHead PatternInits
+data Var = EmptyDecl VarDeclHead PatternInits
              | BlockDecl VarDeclHead VarName TypeAnnotation CodeBlock
              | GetSetDecl VarDeclHead VarName TypeAnnotation GetSetBlock
              | GetSetKeywordDecl VarDeclHead VarName TypeAnnotation GetSetKeywordBlock
@@ -272,7 +283,7 @@ data FunResult = MkFunResult (Maybe Attrs) SwiftType
 
 type FunBody = CodeBlock
 
-data ParamClause = EmptyClause | MkParamClause Params | MkVariableParamClause Params
+data ParamClause = EmptyClause | ParamClause Params | VariableParamClause Params
 
 type Params = NonEmpty Param
 
@@ -379,7 +390,7 @@ data Protocol = Protocol (Maybe Attrs) (Maybe AccessModifier) ProtocolName (Mayb
 
 data Decl = ImportDecl Import
           | ConstDecl
-          | VarDecl
+          | VarDecl Var
           | TypealiasDecl
           | FunDecl
           | EnumDecl Enum
